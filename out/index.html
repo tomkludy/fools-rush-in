@@ -1,0 +1,28 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Fools Rush In</title>
+  <script src="main.js"></script>
+</head>
+<body>
+  <div id="main" />
+  <script>
+    var app = Elm.Main.init({
+      node: document.getElementById("main")
+    });
+    app.ports.setLocalStore.subscribe(function (msg) {
+      console.log('[setLocalStore]', msg);
+      localStorage.setItem(msg.prop, JSON.stringify(msg.value));
+    });
+    app.ports.getLocalStore.subscribe(function (msg) {
+      console.log('[getLocalStore]', msg);
+      let stored = localStorage.getItem(msg.prop);
+      let val = stored ? JSON.parse(stored) : null;
+      let send = {prop: msg.prop, value: val};
+      console.log('[recvLocalStore]', send);
+      app.ports.recvLocalStore.send(send);
+    });
+  </script>
+</body>
+</html>
