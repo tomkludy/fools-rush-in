@@ -4479,6 +4479,107 @@ var _Parser_findSubString = F5(function(smallString, offset, row, col, bigString
 });
 
 
+// CREATE
+
+var _Regex_never = /.^/;
+
+var _Regex_fromStringWith = F2(function(options, string)
+{
+	var flags = 'g';
+	if (options.multiline) { flags += 'm'; }
+	if (options.caseInsensitive) { flags += 'i'; }
+
+	try
+	{
+		return elm$core$Maybe$Just(new RegExp(string, flags));
+	}
+	catch(error)
+	{
+		return elm$core$Maybe$Nothing;
+	}
+});
+
+
+// USE
+
+var _Regex_contains = F2(function(re, string)
+{
+	return string.match(re) !== null;
+});
+
+
+var _Regex_findAtMost = F3(function(n, re, str)
+{
+	var out = [];
+	var number = 0;
+	var string = str;
+	var lastIndex = re.lastIndex;
+	var prevLastIndex = -1;
+	var result;
+	while (number++ < n && (result = re.exec(string)))
+	{
+		if (prevLastIndex == re.lastIndex) break;
+		var i = result.length - 1;
+		var subs = new Array(i);
+		while (i > 0)
+		{
+			var submatch = result[i];
+			subs[--i] = submatch
+				? elm$core$Maybe$Just(submatch)
+				: elm$core$Maybe$Nothing;
+		}
+		out.push(A4(elm$regex$Regex$Match, result[0], result.index, number, _List_fromArray(subs)));
+		prevLastIndex = re.lastIndex;
+	}
+	re.lastIndex = lastIndex;
+	return _List_fromArray(out);
+});
+
+
+var _Regex_replaceAtMost = F4(function(n, re, replacer, string)
+{
+	var count = 0;
+	function jsReplacer(match)
+	{
+		if (count++ >= n)
+		{
+			return match;
+		}
+		var i = arguments.length - 3;
+		var submatches = new Array(i);
+		while (i > 0)
+		{
+			var submatch = arguments[i];
+			submatches[--i] = submatch
+				? elm$core$Maybe$Just(submatch)
+				: elm$core$Maybe$Nothing;
+		}
+		return replacer(A4(elm$regex$Regex$Match, match, arguments[arguments.length - 2], count, _List_fromArray(submatches)));
+	}
+	return string.replace(re, jsReplacer);
+});
+
+var _Regex_splitAtMost = F3(function(n, re, str)
+{
+	var string = str;
+	var out = [];
+	var start = re.lastIndex;
+	var restoreLastIndex = re.lastIndex;
+	while (n--)
+	{
+		var result = re.exec(string);
+		if (!result) break;
+		out.push(string.slice(start, result.index));
+		start = re.lastIndex;
+	}
+	out.push(string.slice(start));
+	re.lastIndex = restoreLastIndex;
+	return _List_fromArray(out);
+});
+
+var _Regex_infinity = Infinity;
+
+
 
 // DECODER
 
@@ -4655,107 +4756,6 @@ function _File_toUrl(blob)
 	});
 }
 
-
-
-// CREATE
-
-var _Regex_never = /.^/;
-
-var _Regex_fromStringWith = F2(function(options, string)
-{
-	var flags = 'g';
-	if (options.multiline) { flags += 'm'; }
-	if (options.caseInsensitive) { flags += 'i'; }
-
-	try
-	{
-		return elm$core$Maybe$Just(new RegExp(string, flags));
-	}
-	catch(error)
-	{
-		return elm$core$Maybe$Nothing;
-	}
-});
-
-
-// USE
-
-var _Regex_contains = F2(function(re, string)
-{
-	return string.match(re) !== null;
-});
-
-
-var _Regex_findAtMost = F3(function(n, re, str)
-{
-	var out = [];
-	var number = 0;
-	var string = str;
-	var lastIndex = re.lastIndex;
-	var prevLastIndex = -1;
-	var result;
-	while (number++ < n && (result = re.exec(string)))
-	{
-		if (prevLastIndex == re.lastIndex) break;
-		var i = result.length - 1;
-		var subs = new Array(i);
-		while (i > 0)
-		{
-			var submatch = result[i];
-			subs[--i] = submatch
-				? elm$core$Maybe$Just(submatch)
-				: elm$core$Maybe$Nothing;
-		}
-		out.push(A4(elm$regex$Regex$Match, result[0], result.index, number, _List_fromArray(subs)));
-		prevLastIndex = re.lastIndex;
-	}
-	re.lastIndex = lastIndex;
-	return _List_fromArray(out);
-});
-
-
-var _Regex_replaceAtMost = F4(function(n, re, replacer, string)
-{
-	var count = 0;
-	function jsReplacer(match)
-	{
-		if (count++ >= n)
-		{
-			return match;
-		}
-		var i = arguments.length - 3;
-		var submatches = new Array(i);
-		while (i > 0)
-		{
-			var submatch = arguments[i];
-			submatches[--i] = submatch
-				? elm$core$Maybe$Just(submatch)
-				: elm$core$Maybe$Nothing;
-		}
-		return replacer(A4(elm$regex$Regex$Match, match, arguments[arguments.length - 2], count, _List_fromArray(submatches)));
-	}
-	return string.replace(re, jsReplacer);
-});
-
-var _Regex_splitAtMost = F3(function(n, re, str)
-{
-	var string = str;
-	var out = [];
-	var start = re.lastIndex;
-	var restoreLastIndex = re.lastIndex;
-	while (n--)
-	{
-		var result = re.exec(string);
-		if (!result) break;
-		out.push(string.slice(start, result.index));
-		start = re.lastIndex;
-	}
-	out.push(string.slice(start));
-	re.lastIndex = restoreLastIndex;
-	return _List_fromArray(out);
-});
-
-var _Regex_infinity = Infinity;
 var elm$core$Basics$True = {$: 'True'};
 var elm$core$Maybe$Nothing = {$: 'Nothing'};
 var author$project$CurrentPositions$initCashPosition = {actualEndCash: 0.0, desiredEndCash: 0.0, matchFool: true, pendingEndCash: elm$core$Maybe$Nothing, startCash: 0.0};
@@ -7737,504 +7737,23 @@ var author$project$Missions$parseMission = function (input) {
 			});
 	}
 };
-var elm$file$File$toString = _File_toString;
-var elm$file$File$Select$file = F2(
-	function (mimes, toMsg) {
-		return A2(
-			elm$core$Task$perform,
-			toMsg,
-			_File_uploadOne(mimes));
-	});
-var pablen$toasty$Toasty$Leaving = {$: 'Leaving'};
-var pablen$toasty$Toasty$Remove = function (a) {
-	return {$: 'Remove', a: a};
-};
-var pablen$toasty$Toasty$update = F4(
-	function (_n0, tagger, msg, model) {
-		var cfg = _n0.a;
-		var _n1 = model.toasties;
-		var toasts = _n1.a;
-		var seed = _n1.b;
-		switch (msg.$) {
-			case 'Add':
-				var toast = msg.a;
-				return A4(
-					pablen$toasty$Toasty$addToast,
-					pablen$toasty$Toasty$config,
-					tagger,
-					toast,
-					_Utils_Tuple2(model, elm$core$Platform$Cmd$none));
-			case 'Remove':
-				var targetId = msg.a;
-				var newStack = A2(
-					elm$core$List$filter,
-					function (_n3) {
-						var id = _n3.a;
-						var toast = _n3.b;
-						var status = _n3.c;
-						return !_Utils_eq(id, targetId);
-					},
-					toasts);
-				return _Utils_Tuple2(
-					_Utils_update(
-						model,
-						{
-							toasties: A2(pablen$toasty$Toasty$Stack, newStack, seed)
-						}),
-					elm$core$Platform$Cmd$none);
-			default:
-				var targetId = msg.a;
-				var newStack = A2(
-					elm$core$List$map,
-					function (_n5) {
-						var id = _n5.a;
-						var status = _n5.b;
-						var toast = _n5.c;
-						return _Utils_eq(id, targetId) ? _Utils_Tuple3(id, pablen$toasty$Toasty$Leaving, toast) : _Utils_Tuple3(id, status, toast);
-					},
-					toasts);
-				return _Utils_Tuple2(
-					_Utils_update(
-						model,
-						{
-							toasties: A2(pablen$toasty$Toasty$Stack, newStack, seed)
-						}),
-					A2(
-						elm$core$Task$perform,
-						function (_n4) {
-							return tagger(
-								pablen$toasty$Toasty$Remove(targetId));
-						},
-						elm$core$Process$sleep(cfg.transitionOutDuration)));
-		}
-	});
-var author$project$Main$update = F2(
-	function (msg, model) {
-		switch (msg.$) {
-			case 'CurrentPositionsRequested':
-				return _Utils_Tuple2(
-					model,
-					A2(
-						elm$file$File$Select$file,
-						_List_fromArray(
-							['text/csv']),
-						author$project$Main$CurrentPositionsSelected));
-			case 'CurrentPositionsSelected':
-				var file = msg.a;
-				return _Utils_Tuple2(
-					model,
-					A2(
-						elm$core$Task$perform,
-						author$project$Main$CurrentPositionsLoaded,
-						elm$file$File$toString(file)));
-			case 'CurrentPositionsLoaded':
-				var content = msg.a;
-				var _n1 = author$project$CurrentPositions$parseCurrentPositions(content);
-				if (_n1.$ === 'Err') {
-					var error = _n1.a;
-					return A2(
-						author$project$Main$addToastError,
-						error,
-						_Utils_Tuple2(model, elm$core$Platform$Cmd$none));
-				} else {
-					var positions = _n1.a;
-					return author$project$Main$recalculate(
-						_Utils_Tuple2(
-							_Utils_update(
-								model,
-								{cash: positions.b, currentPositions: positions.a}),
-							elm$core$Platform$Cmd$none));
-				}
-			case 'TabMsg':
-				var state = msg.a;
-				return _Utils_Tuple2(
-					_Utils_update(
-						model,
-						{tabState: state}),
-					elm$core$Platform$Cmd$none);
-			case 'AddTargetInputMsg':
-				var input = msg.a;
-				var _n2 = author$project$Missions$parseMission(input);
-				if (_n2.$ === 'Nothing') {
-					return A2(
-						author$project$Main$addToastError,
-						'Does not appear to be a valid mission',
-						_Utils_Tuple2(model, elm$core$Platform$Cmd$none));
-				} else {
-					var mission = _n2.a;
-					return A2(
-						author$project$Main$addToastSuccess,
-						'Added mission: ' + mission.name,
-						author$project$Main$recalculate(
-							_Utils_Tuple2(
-								_Utils_update(
-									model,
-									{
-										missions: A2(author$project$Missions$addMission, mission, model.missions)
-									}),
-								elm$core$Platform$Cmd$none)));
-				}
-			case 'ToastyMsg':
-				var subMsg = msg.a;
-				return A4(pablen$toasty$Toasty$update, author$project$Main$toastyConfig, author$project$Main$ToastyMsg, subMsg, model);
-			case 'RemoveTargetRequested':
-				var mission = msg.a;
-				return A2(
-					author$project$Main$addToastSuccess,
-					'Removed mission: ' + mission.name,
-					author$project$Main$recalculate(
-						_Utils_Tuple2(
-							_Utils_update(
-								model,
-								{
-									missions: A2(author$project$Missions$removeMission, mission.name, model.missions)
-								}),
-							elm$core$Platform$Cmd$none)));
-			case 'SwitchUseFoolAllocationMsg':
-				var enable = msg.a;
-				return author$project$Main$recalculate(
-					_Utils_Tuple2(
-						_Utils_update(
-							model,
-							{
-								cash: A2(author$project$CurrentPositions$setMatchFool, enable, model.cash)
-							}),
-						elm$core$Platform$Cmd$none));
-			case 'UpdatePendingTargetCashMsg':
-				var value = msg.a;
-				return author$project$Main$recalculate(
-					_Utils_Tuple2(
-						_Utils_update(
-							model,
-							{
-								cash: A3(author$project$CurrentPositions$setPendingEndCash, value, model.totalValueForTrades, model.cash)
-							}),
-						elm$core$Platform$Cmd$none));
-			case 'UpdateTargetCashMsg':
-				return author$project$Main$recalculate(
-					_Utils_Tuple2(
-						_Utils_update(
-							model,
-							{
-								cash: author$project$CurrentPositions$commitPendingEndCash(model.cash)
-							}),
-						elm$core$Platform$Cmd$none));
-			case 'RevertTargetCashMsg':
-				return author$project$Main$recalculate(
-					_Utils_Tuple2(
-						_Utils_update(
-							model,
-							{
-								cash: author$project$CurrentPositions$revertPendingEndCash(model.cash)
-							}),
-						elm$core$Platform$Cmd$none));
-			case 'ChangeIgnoreSymbolMsg':
-				var symbol = msg.a;
-				var ignore = msg.b;
-				var newIgnored = function () {
-					if (ignore) {
-						return A2(elm$core$List$cons, symbol, model.ignoredSymbols);
-					} else {
-						return A2(
-							elm$core$List$filter,
-							elm$core$Basics$neq(symbol),
-							model.ignoredSymbols);
-					}
-				}();
-				return author$project$Main$recalculate(
-					_Utils_Tuple2(
-						_Utils_update(
-							model,
-							{ignoredSymbols: newIgnored}),
-						author$project$LocalStore$setLocalStore(
-							author$project$Port$IgnoredSymbolValue(newIgnored))));
-			case 'SendToJS':
-				var cmd = msg.a;
-				if (cmd.$ === 'SetLocalStore') {
-					var v = cmd.a;
-					return _Utils_Tuple2(
-						model,
-						author$project$LocalStore$setLocalStore(
-							author$project$Port$IgnoredSymbolValue(model.ignoredSymbols)));
-				} else {
-					var v = cmd.a;
-					return _Utils_Tuple2(
-						model,
-						author$project$LocalStore$getLocalStore(author$project$Port$IgnoredSymbols));
-				}
-			default:
-				var incoming = msg.a;
-				var _n5 = author$project$LocalStore$propRetrieved(incoming);
-				if (_n5.$ === 'Err') {
-					var error = _n5.a;
-					return A2(
-						author$project$Main$addToastError,
-						error,
-						_Utils_Tuple2(model, elm$core$Platform$Cmd$none));
-				} else {
-					if (_n5.a.$ === 'Just') {
-						var list = _n5.a.a.a;
-						return author$project$Main$recalculate(
-							_Utils_Tuple2(
-								_Utils_update(
-									model,
-									{ignoredSymbols: list}),
-								elm$core$Platform$Cmd$none));
-					} else {
-						var _n6 = _n5.a;
-						return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
-					}
-				}
-		}
-	});
-var author$project$Main$CurrentPositionsRequested = {$: 'CurrentPositionsRequested'};
-var author$project$Main$AddTargetInputMsg = function (a) {
-	return {$: 'AddTargetInputMsg', a: a};
-};
-var elm$virtual_dom$VirtualDom$text = _VirtualDom_text;
-var elm$html$Html$text = elm$virtual_dom$VirtualDom$text;
-var rundis$elm_bootstrap$Bootstrap$Form$Textarea$Id = function (a) {
-	return {$: 'Id', a: a};
-};
-var rundis$elm_bootstrap$Bootstrap$Form$Textarea$id = function (id_) {
-	return rundis$elm_bootstrap$Bootstrap$Form$Textarea$Id(id_);
-};
-var rundis$elm_bootstrap$Bootstrap$Form$Textarea$OnInput = function (a) {
-	return {$: 'OnInput', a: a};
-};
-var rundis$elm_bootstrap$Bootstrap$Form$Textarea$onInput = function (toMsg) {
-	return rundis$elm_bootstrap$Bootstrap$Form$Textarea$OnInput(toMsg);
-};
-var rundis$elm_bootstrap$Bootstrap$Form$Textarea$Rows = function (a) {
-	return {$: 'Rows', a: a};
-};
-var rundis$elm_bootstrap$Bootstrap$Form$Textarea$rows = function (rows_) {
-	return rundis$elm_bootstrap$Bootstrap$Form$Textarea$Rows(rows_);
-};
-var rundis$elm_bootstrap$Bootstrap$Form$Textarea$Textarea = function (a) {
-	return {$: 'Textarea', a: a};
-};
-var rundis$elm_bootstrap$Bootstrap$Form$Textarea$create = function (options) {
-	return rundis$elm_bootstrap$Bootstrap$Form$Textarea$Textarea(
-		{options: options});
-};
-var elm$html$Html$textarea = _VirtualDom_node('textarea');
-var elm$core$Maybe$map = F2(
-	function (f, maybe) {
-		if (maybe.$ === 'Just') {
-			var value = maybe.a;
-			return elm$core$Maybe$Just(
-				f(value));
-		} else {
-			return elm$core$Maybe$Nothing;
-		}
-	});
-var elm$json$Json$Encode$bool = _Json_wrap;
-var elm$html$Html$Attributes$boolProperty = F2(
-	function (key, bool) {
-		return A2(
-			_VirtualDom_property,
-			key,
-			elm$json$Json$Encode$bool(bool));
-	});
-var elm$html$Html$Attributes$disabled = elm$html$Html$Attributes$boolProperty('disabled');
-var elm$html$Html$Attributes$id = elm$html$Html$Attributes$stringProperty('id');
-var elm$html$Html$Attributes$rows = function (n) {
-	return A2(
-		_VirtualDom_attribute,
-		'rows',
-		elm$core$String$fromInt(n));
-};
-var elm$html$Html$Attributes$value = elm$html$Html$Attributes$stringProperty('value');
-var elm$html$Html$Events$alwaysStop = function (x) {
-	return _Utils_Tuple2(x, true);
-};
-var elm$virtual_dom$VirtualDom$MayStopPropagation = function (a) {
-	return {$: 'MayStopPropagation', a: a};
-};
-var elm$virtual_dom$VirtualDom$on = _VirtualDom_on;
-var elm$html$Html$Events$stopPropagationOn = F2(
-	function (event, decoder) {
-		return A2(
-			elm$virtual_dom$VirtualDom$on,
-			event,
-			elm$virtual_dom$VirtualDom$MayStopPropagation(decoder));
-	});
-var elm$json$Json$Decode$at = F2(
-	function (fields, decoder) {
-		return A3(elm$core$List$foldr, elm$json$Json$Decode$field, decoder, fields);
-	});
-var elm$html$Html$Events$targetValue = A2(
-	elm$json$Json$Decode$at,
-	_List_fromArray(
-		['target', 'value']),
-	elm$json$Json$Decode$string);
-var elm$html$Html$Events$onInput = function (tagger) {
-	return A2(
-		elm$html$Html$Events$stopPropagationOn,
-		'input',
-		A2(
-			elm$json$Json$Decode$map,
-			elm$html$Html$Events$alwaysStop,
-			A2(elm$json$Json$Decode$map, tagger, elm$html$Html$Events$targetValue)));
-};
-var rundis$elm_bootstrap$Bootstrap$Form$Textarea$applyModifier = F2(
-	function (modifier, options) {
-		switch (modifier.$) {
-			case 'Id':
-				var id_ = modifier.a;
-				return _Utils_update(
-					options,
-					{
-						id: elm$core$Maybe$Just(id_)
-					});
-			case 'Rows':
-				var rows_ = modifier.a;
-				return _Utils_update(
-					options,
-					{
-						rows: elm$core$Maybe$Just(rows_)
-					});
-			case 'Disabled':
-				return _Utils_update(
-					options,
-					{disabled: true});
-			case 'Value':
-				var value_ = modifier.a;
-				return _Utils_update(
-					options,
-					{
-						value: elm$core$Maybe$Just(value_)
-					});
-			case 'OnInput':
-				var onInput_ = modifier.a;
-				return _Utils_update(
-					options,
-					{
-						onInput: elm$core$Maybe$Just(onInput_)
-					});
-			case 'Validation':
-				var validation = modifier.a;
-				return _Utils_update(
-					options,
-					{
-						validation: elm$core$Maybe$Just(validation)
-					});
-			default:
-				var attrs_ = modifier.a;
-				return _Utils_update(
-					options,
-					{
-						attributes: _Utils_ap(options.attributes, attrs_)
-					});
-		}
-	});
-var rundis$elm_bootstrap$Bootstrap$Form$Textarea$defaultOptions = {attributes: _List_Nil, disabled: false, id: elm$core$Maybe$Nothing, onInput: elm$core$Maybe$Nothing, rows: elm$core$Maybe$Nothing, validation: elm$core$Maybe$Nothing, value: elm$core$Maybe$Nothing};
-var rundis$elm_bootstrap$Bootstrap$Form$FormInternal$validationToString = function (validation) {
-	if (validation.$ === 'Success') {
-		return 'is-valid';
-	} else {
-		return 'is-invalid';
+var author$project$Transactions$transTypeToString = function (t) {
+	switch (t.$) {
+		case 'Ignore':
+			return 'Ignore';
+		case 'Sell':
+			return 'Sell';
+		case 'Buy':
+			return 'Buy';
+		default:
+			return 'Hold';
 	}
 };
-var rundis$elm_bootstrap$Bootstrap$Form$Textarea$validationAttribute = function (validation) {
-	return elm$html$Html$Attributes$class(
-		rundis$elm_bootstrap$Bootstrap$Form$FormInternal$validationToString(validation));
+var author$project$Utils$toCsvField = function (s) {
+	var quoted = A3(elm$core$String$replace, '\"', '\"\"', s);
+	var mustQuote = A2(elm$core$String$contains, '\"', s) || A2(elm$core$String$contains, ',', s);
+	return mustQuote ? ('\"' + (quoted + '\"')) : s;
 };
-var rundis$elm_bootstrap$Bootstrap$Form$Textarea$toAttributes = function (modifiers) {
-	var options = A3(elm$core$List$foldl, rundis$elm_bootstrap$Bootstrap$Form$Textarea$applyModifier, rundis$elm_bootstrap$Bootstrap$Form$Textarea$defaultOptions, modifiers);
-	return _Utils_ap(
-		_List_fromArray(
-			[
-				elm$html$Html$Attributes$class('form-control'),
-				elm$html$Html$Attributes$disabled(options.disabled)
-			]),
-		_Utils_ap(
-			A2(
-				elm$core$List$filterMap,
-				elm$core$Basics$identity,
-				_List_fromArray(
-					[
-						A2(elm$core$Maybe$map, elm$html$Html$Attributes$id, options.id),
-						A2(elm$core$Maybe$map, elm$html$Html$Attributes$rows, options.rows),
-						A2(elm$core$Maybe$map, elm$html$Html$Attributes$value, options.value),
-						A2(elm$core$Maybe$map, elm$html$Html$Events$onInput, options.onInput),
-						A2(elm$core$Maybe$map, rundis$elm_bootstrap$Bootstrap$Form$Textarea$validationAttribute, options.validation)
-					])),
-			options.attributes));
-};
-var rundis$elm_bootstrap$Bootstrap$Form$Textarea$view = function (_n0) {
-	var options = _n0.a.options;
-	return A2(
-		elm$html$Html$textarea,
-		rundis$elm_bootstrap$Bootstrap$Form$Textarea$toAttributes(options),
-		_List_Nil);
-};
-var rundis$elm_bootstrap$Bootstrap$Form$Textarea$textarea = A2(elm$core$Basics$composeL, rundis$elm_bootstrap$Bootstrap$Form$Textarea$view, rundis$elm_bootstrap$Bootstrap$Form$Textarea$create);
-var rundis$elm_bootstrap$Bootstrap$Form$Textarea$Value = function (a) {
-	return {$: 'Value', a: a};
-};
-var rundis$elm_bootstrap$Bootstrap$Form$Textarea$value = function (value_) {
-	return rundis$elm_bootstrap$Bootstrap$Form$Textarea$Value(value_);
-};
-var rundis$elm_bootstrap$Bootstrap$Tab$Item = function (a) {
-	return {$: 'Item', a: a};
-};
-var rundis$elm_bootstrap$Bootstrap$Tab$item = function (rec) {
-	return rundis$elm_bootstrap$Bootstrap$Tab$Item(
-		{id: rec.id, link: rec.link, pane: rec.pane});
-};
-var rundis$elm_bootstrap$Bootstrap$Tab$Link = function (a) {
-	return {$: 'Link', a: a};
-};
-var rundis$elm_bootstrap$Bootstrap$Tab$link = F2(
-	function (attributes, children) {
-		return rundis$elm_bootstrap$Bootstrap$Tab$Link(
-			{attributes: attributes, children: children});
-	});
-var rundis$elm_bootstrap$Bootstrap$Tab$Pane = function (a) {
-	return {$: 'Pane', a: a};
-};
-var rundis$elm_bootstrap$Bootstrap$Tab$pane = F2(
-	function (attributes, children) {
-		return rundis$elm_bootstrap$Bootstrap$Tab$Pane(
-			{attributes: attributes, children: children});
-	});
-var author$project$Main$addTargetTab = rundis$elm_bootstrap$Bootstrap$Tab$item(
-	{
-		id: 'tabAddTarget',
-		link: A2(
-			rundis$elm_bootstrap$Bootstrap$Tab$link,
-			_List_Nil,
-			_List_fromArray(
-				[
-					elm$html$Html$text('+ Add Target')
-				])),
-		pane: A2(
-			rundis$elm_bootstrap$Bootstrap$Tab$pane,
-			_List_Nil,
-			_List_fromArray(
-				[
-					elm$html$Html$text('Cut & paste a Fool portfolio page here to add it as a target'),
-					rundis$elm_bootstrap$Bootstrap$Form$Textarea$textarea(
-					_List_fromArray(
-						[
-							rundis$elm_bootstrap$Bootstrap$Form$Textarea$id('inputAddTarget'),
-							rundis$elm_bootstrap$Bootstrap$Form$Textarea$rows(4),
-							rundis$elm_bootstrap$Bootstrap$Form$Textarea$value(''),
-							rundis$elm_bootstrap$Bootstrap$Form$Textarea$onInput(author$project$Main$AddTargetInputMsg)
-						]))
-				]))
-	});
-var author$project$Main$RevertTargetCashMsg = {$: 'RevertTargetCashMsg'};
-var author$project$Main$SwitchUseFoolAllocationMsg = function (a) {
-	return {$: 'SwitchUseFoolAllocationMsg', a: a};
-};
-var author$project$Main$UpdatePendingTargetCashMsg = function (a) {
-	return {$: 'UpdatePendingTargetCashMsg', a: a};
-};
-var author$project$Main$UpdateTargetCashMsg = {$: 'UpdateTargetCashMsg'};
-var elm$core$String$fromFloat = _String_fromNumber;
 var elm$core$Basics$modBy = _Basics_modBy;
 var ggb$numeral_elm$Languages$English$englishOrdinal = function (number) {
 	var number1 = elm$core$Basics$floor(number);
@@ -8248,6 +7767,7 @@ var ggb$numeral_elm$Languages$English$lang = {
 	delimiters: {decimal: '.', thousands: ','},
 	ordinal: ggb$numeral_elm$Languages$English$englishOrdinal
 };
+var elm$core$String$fromFloat = _String_fromNumber;
 var ggb$numeral_elm$Numeral$empty = F3(
 	function (lang, format_val, value) {
 		return {
@@ -9136,6 +8656,640 @@ var ggb$numeral_elm$Numeral$formatWithLanguage = F3(
 			A3(ggb$numeral_elm$Numeral$empty, lang, lformat, value))));
 	});
 var ggb$numeral_elm$Numeral$format = ggb$numeral_elm$Numeral$formatWithLanguage(ggb$numeral_elm$Languages$English$lang);
+var author$project$Transactions$toCsv = F3(
+	function (cash, transactions, totalValue) {
+		return A2(
+			elm$core$String$join,
+			'\n',
+			A2(
+				elm$core$List$map,
+				elm$core$String$join(','),
+				_Utils_ap(
+					_List_fromArray(
+						[
+							_List_fromArray(
+							[
+								author$project$Utils$toCsvField('Start cash'),
+								author$project$Utils$toCsvField('End cash'),
+								author$project$Utils$toCsvField('End cash %')
+							]),
+							_List_fromArray(
+							[
+								author$project$Utils$toCsvField(
+								A2(ggb$numeral_elm$Numeral$format, '$0,0.00', cash.startCash)),
+								author$project$Utils$toCsvField(
+								A2(ggb$numeral_elm$Numeral$format, '$0,0.00', cash.actualEndCash)),
+								author$project$Utils$toCsvField(
+								A2(ggb$numeral_elm$Numeral$format, '0.0%', cash.actualEndCash / totalValue))
+							]),
+							_List_Nil,
+							_List_fromArray(
+							[
+								author$project$Utils$toCsvField('Action'),
+								author$project$Utils$toCsvField('Symbol'),
+								author$project$Utils$toCsvField('Description'),
+								author$project$Utils$toCsvField('# of Shares'),
+								author$project$Utils$toCsvField('Trade Value'),
+								author$project$Utils$toCsvField('Last Price'),
+								author$project$Utils$toCsvField('Start Shares'),
+								author$project$Utils$toCsvField('Start Amount'),
+								author$project$Utils$toCsvField('Start %'),
+								author$project$Utils$toCsvField('End Shares'),
+								author$project$Utils$toCsvField('End Amount'),
+								author$project$Utils$toCsvField('End %'),
+								author$project$Utils$toCsvField('Optimal Amount'),
+								author$project$Utils$toCsvField('Optimal %')
+							])
+						]),
+					A2(
+						elm$core$List$map,
+						function (t) {
+							return _List_fromArray(
+								[
+									author$project$Utils$toCsvField(
+									author$project$Transactions$transTypeToString(t.transType)),
+									author$project$Utils$toCsvField(t.symbol),
+									author$project$Utils$toCsvField(t.description),
+									author$project$Utils$toCsvField(
+									elm$core$String$fromInt(t.numberOfShares)),
+									author$project$Utils$toCsvField(
+									A2(ggb$numeral_elm$Numeral$format, '$0,0.00', t.value)),
+									author$project$Utils$toCsvField(
+									A2(ggb$numeral_elm$Numeral$format, '$0,0.00', t.price)),
+									author$project$Utils$toCsvField(
+									elm$core$String$fromInt(t.startShares)),
+									author$project$Utils$toCsvField(
+									A2(ggb$numeral_elm$Numeral$format, '$0,0.00', t.startAmount)),
+									author$project$Utils$toCsvField(
+									A2(ggb$numeral_elm$Numeral$format, '0.0%', t.startPercent / 100.0)),
+									author$project$Utils$toCsvField(
+									elm$core$String$fromInt(t.endShares)),
+									author$project$Utils$toCsvField(
+									A2(ggb$numeral_elm$Numeral$format, '$0,0.00', t.endAmount)),
+									author$project$Utils$toCsvField(
+									A2(ggb$numeral_elm$Numeral$format, '0.0%', t.endPercent / 100.0)),
+									author$project$Utils$toCsvField(
+									A2(ggb$numeral_elm$Numeral$format, '$0,0.00', t.optimalAmount)),
+									author$project$Utils$toCsvField(
+									A2(ggb$numeral_elm$Numeral$format, '0.0%', t.optimalPercent / 100.0))
+								]);
+						},
+						transactions))));
+	});
+var elm$file$File$toString = _File_toString;
+var elm$file$File$Download$string = F3(
+	function (name, mime, content) {
+		return A2(
+			elm$core$Task$perform,
+			elm$core$Basics$never,
+			A3(_File_download, name, mime, content));
+	});
+var elm$file$File$Select$file = F2(
+	function (mimes, toMsg) {
+		return A2(
+			elm$core$Task$perform,
+			toMsg,
+			_File_uploadOne(mimes));
+	});
+var pablen$toasty$Toasty$Leaving = {$: 'Leaving'};
+var pablen$toasty$Toasty$Remove = function (a) {
+	return {$: 'Remove', a: a};
+};
+var pablen$toasty$Toasty$update = F4(
+	function (_n0, tagger, msg, model) {
+		var cfg = _n0.a;
+		var _n1 = model.toasties;
+		var toasts = _n1.a;
+		var seed = _n1.b;
+		switch (msg.$) {
+			case 'Add':
+				var toast = msg.a;
+				return A4(
+					pablen$toasty$Toasty$addToast,
+					pablen$toasty$Toasty$config,
+					tagger,
+					toast,
+					_Utils_Tuple2(model, elm$core$Platform$Cmd$none));
+			case 'Remove':
+				var targetId = msg.a;
+				var newStack = A2(
+					elm$core$List$filter,
+					function (_n3) {
+						var id = _n3.a;
+						var toast = _n3.b;
+						var status = _n3.c;
+						return !_Utils_eq(id, targetId);
+					},
+					toasts);
+				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{
+							toasties: A2(pablen$toasty$Toasty$Stack, newStack, seed)
+						}),
+					elm$core$Platform$Cmd$none);
+			default:
+				var targetId = msg.a;
+				var newStack = A2(
+					elm$core$List$map,
+					function (_n5) {
+						var id = _n5.a;
+						var status = _n5.b;
+						var toast = _n5.c;
+						return _Utils_eq(id, targetId) ? _Utils_Tuple3(id, pablen$toasty$Toasty$Leaving, toast) : _Utils_Tuple3(id, status, toast);
+					},
+					toasts);
+				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{
+							toasties: A2(pablen$toasty$Toasty$Stack, newStack, seed)
+						}),
+					A2(
+						elm$core$Task$perform,
+						function (_n4) {
+							return tagger(
+								pablen$toasty$Toasty$Remove(targetId));
+						},
+						elm$core$Process$sleep(cfg.transitionOutDuration)));
+		}
+	});
+var author$project$Main$update = F2(
+	function (msg, model) {
+		switch (msg.$) {
+			case 'CurrentPositionsRequested':
+				return _Utils_Tuple2(
+					model,
+					A2(
+						elm$file$File$Select$file,
+						_List_fromArray(
+							['text/csv']),
+						author$project$Main$CurrentPositionsSelected));
+			case 'CurrentPositionsSelected':
+				var file = msg.a;
+				return _Utils_Tuple2(
+					model,
+					A2(
+						elm$core$Task$perform,
+						author$project$Main$CurrentPositionsLoaded,
+						elm$file$File$toString(file)));
+			case 'CurrentPositionsLoaded':
+				var content = msg.a;
+				var _n1 = author$project$CurrentPositions$parseCurrentPositions(content);
+				if (_n1.$ === 'Err') {
+					var error = _n1.a;
+					return A2(
+						author$project$Main$addToastError,
+						error,
+						_Utils_Tuple2(model, elm$core$Platform$Cmd$none));
+				} else {
+					var positions = _n1.a;
+					return author$project$Main$recalculate(
+						_Utils_Tuple2(
+							_Utils_update(
+								model,
+								{cash: positions.b, currentPositions: positions.a}),
+							elm$core$Platform$Cmd$none));
+				}
+			case 'TabMsg':
+				var state = msg.a;
+				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{tabState: state}),
+					elm$core$Platform$Cmd$none);
+			case 'AddTargetInputMsg':
+				var input = msg.a;
+				var _n2 = author$project$Missions$parseMission(input);
+				if (_n2.$ === 'Nothing') {
+					return A2(
+						author$project$Main$addToastError,
+						'Does not appear to be a valid mission',
+						_Utils_Tuple2(model, elm$core$Platform$Cmd$none));
+				} else {
+					var mission = _n2.a;
+					return A2(
+						author$project$Main$addToastSuccess,
+						'Added mission: ' + mission.name,
+						author$project$Main$recalculate(
+							_Utils_Tuple2(
+								_Utils_update(
+									model,
+									{
+										missions: A2(author$project$Missions$addMission, mission, model.missions)
+									}),
+								elm$core$Platform$Cmd$none)));
+				}
+			case 'ToastyMsg':
+				var subMsg = msg.a;
+				return A4(pablen$toasty$Toasty$update, author$project$Main$toastyConfig, author$project$Main$ToastyMsg, subMsg, model);
+			case 'RemoveTargetRequested':
+				var mission = msg.a;
+				return A2(
+					author$project$Main$addToastSuccess,
+					'Removed mission: ' + mission.name,
+					author$project$Main$recalculate(
+						_Utils_Tuple2(
+							_Utils_update(
+								model,
+								{
+									missions: A2(author$project$Missions$removeMission, mission.name, model.missions)
+								}),
+							elm$core$Platform$Cmd$none)));
+			case 'SwitchUseFoolAllocationMsg':
+				var enable = msg.a;
+				return author$project$Main$recalculate(
+					_Utils_Tuple2(
+						_Utils_update(
+							model,
+							{
+								cash: A2(author$project$CurrentPositions$setMatchFool, enable, model.cash)
+							}),
+						elm$core$Platform$Cmd$none));
+			case 'UpdatePendingTargetCashMsg':
+				var value = msg.a;
+				return author$project$Main$recalculate(
+					_Utils_Tuple2(
+						_Utils_update(
+							model,
+							{
+								cash: A3(author$project$CurrentPositions$setPendingEndCash, value, model.totalValueForTrades, model.cash)
+							}),
+						elm$core$Platform$Cmd$none));
+			case 'UpdateTargetCashMsg':
+				return author$project$Main$recalculate(
+					_Utils_Tuple2(
+						_Utils_update(
+							model,
+							{
+								cash: author$project$CurrentPositions$commitPendingEndCash(model.cash)
+							}),
+						elm$core$Platform$Cmd$none));
+			case 'RevertTargetCashMsg':
+				return author$project$Main$recalculate(
+					_Utils_Tuple2(
+						_Utils_update(
+							model,
+							{
+								cash: author$project$CurrentPositions$revertPendingEndCash(model.cash)
+							}),
+						elm$core$Platform$Cmd$none));
+			case 'ChangeIgnoreSymbolMsg':
+				var symbol = msg.a;
+				var ignore = msg.b;
+				var newIgnored = function () {
+					if (ignore) {
+						return A2(elm$core$List$cons, symbol, model.ignoredSymbols);
+					} else {
+						return A2(
+							elm$core$List$filter,
+							elm$core$Basics$neq(symbol),
+							model.ignoredSymbols);
+					}
+				}();
+				return author$project$Main$recalculate(
+					_Utils_Tuple2(
+						_Utils_update(
+							model,
+							{ignoredSymbols: newIgnored}),
+						author$project$LocalStore$setLocalStore(
+							author$project$Port$IgnoredSymbolValue(newIgnored))));
+			case 'SendToJS':
+				var cmd = msg.a;
+				if (cmd.$ === 'SetLocalStore') {
+					var v = cmd.a;
+					return _Utils_Tuple2(
+						model,
+						author$project$LocalStore$setLocalStore(
+							author$project$Port$IgnoredSymbolValue(model.ignoredSymbols)));
+				} else {
+					var v = cmd.a;
+					return _Utils_Tuple2(
+						model,
+						author$project$LocalStore$getLocalStore(author$project$Port$IgnoredSymbols));
+				}
+			case 'RecvFromJS':
+				var incoming = msg.a;
+				var _n5 = author$project$LocalStore$propRetrieved(incoming);
+				if (_n5.$ === 'Err') {
+					var error = _n5.a;
+					return A2(
+						author$project$Main$addToastError,
+						error,
+						_Utils_Tuple2(model, elm$core$Platform$Cmd$none));
+				} else {
+					if (_n5.a.$ === 'Just') {
+						var list = _n5.a.a.a;
+						return author$project$Main$recalculate(
+							_Utils_Tuple2(
+								_Utils_update(
+									model,
+									{ignoredSymbols: list}),
+								elm$core$Platform$Cmd$none));
+					} else {
+						var _n6 = _n5.a;
+						return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
+					}
+				}
+			default:
+				return _Utils_Tuple2(
+					model,
+					A3(
+						elm$file$File$Download$string,
+						'transactions.csv',
+						'text/csv',
+						A3(author$project$Transactions$toCsv, model.cash, model.transactions, model.totalValue)));
+		}
+	});
+var author$project$Main$CurrentPositionsRequested = {$: 'CurrentPositionsRequested'};
+var author$project$Main$AddTargetInputMsg = function (a) {
+	return {$: 'AddTargetInputMsg', a: a};
+};
+var elm$html$Html$img = _VirtualDom_node('img');
+var elm$html$Html$p = _VirtualDom_node('p');
+var elm$html$Html$strong = _VirtualDom_node('strong');
+var elm$virtual_dom$VirtualDom$text = _VirtualDom_text;
+var elm$html$Html$text = elm$virtual_dom$VirtualDom$text;
+var elm$html$Html$Attributes$src = function (url) {
+	return A2(
+		elm$html$Html$Attributes$stringProperty,
+		'src',
+		_VirtualDom_noJavaScriptOrHtmlUri(url));
+};
+var rundis$elm_bootstrap$Bootstrap$Form$Textarea$Id = function (a) {
+	return {$: 'Id', a: a};
+};
+var rundis$elm_bootstrap$Bootstrap$Form$Textarea$id = function (id_) {
+	return rundis$elm_bootstrap$Bootstrap$Form$Textarea$Id(id_);
+};
+var rundis$elm_bootstrap$Bootstrap$Form$Textarea$OnInput = function (a) {
+	return {$: 'OnInput', a: a};
+};
+var rundis$elm_bootstrap$Bootstrap$Form$Textarea$onInput = function (toMsg) {
+	return rundis$elm_bootstrap$Bootstrap$Form$Textarea$OnInput(toMsg);
+};
+var rundis$elm_bootstrap$Bootstrap$Form$Textarea$Rows = function (a) {
+	return {$: 'Rows', a: a};
+};
+var rundis$elm_bootstrap$Bootstrap$Form$Textarea$rows = function (rows_) {
+	return rundis$elm_bootstrap$Bootstrap$Form$Textarea$Rows(rows_);
+};
+var rundis$elm_bootstrap$Bootstrap$Form$Textarea$Textarea = function (a) {
+	return {$: 'Textarea', a: a};
+};
+var rundis$elm_bootstrap$Bootstrap$Form$Textarea$create = function (options) {
+	return rundis$elm_bootstrap$Bootstrap$Form$Textarea$Textarea(
+		{options: options});
+};
+var elm$html$Html$textarea = _VirtualDom_node('textarea');
+var elm$core$Maybe$map = F2(
+	function (f, maybe) {
+		if (maybe.$ === 'Just') {
+			var value = maybe.a;
+			return elm$core$Maybe$Just(
+				f(value));
+		} else {
+			return elm$core$Maybe$Nothing;
+		}
+	});
+var elm$json$Json$Encode$bool = _Json_wrap;
+var elm$html$Html$Attributes$boolProperty = F2(
+	function (key, bool) {
+		return A2(
+			_VirtualDom_property,
+			key,
+			elm$json$Json$Encode$bool(bool));
+	});
+var elm$html$Html$Attributes$disabled = elm$html$Html$Attributes$boolProperty('disabled');
+var elm$html$Html$Attributes$id = elm$html$Html$Attributes$stringProperty('id');
+var elm$html$Html$Attributes$rows = function (n) {
+	return A2(
+		_VirtualDom_attribute,
+		'rows',
+		elm$core$String$fromInt(n));
+};
+var elm$html$Html$Attributes$value = elm$html$Html$Attributes$stringProperty('value');
+var elm$html$Html$Events$alwaysStop = function (x) {
+	return _Utils_Tuple2(x, true);
+};
+var elm$virtual_dom$VirtualDom$MayStopPropagation = function (a) {
+	return {$: 'MayStopPropagation', a: a};
+};
+var elm$virtual_dom$VirtualDom$on = _VirtualDom_on;
+var elm$html$Html$Events$stopPropagationOn = F2(
+	function (event, decoder) {
+		return A2(
+			elm$virtual_dom$VirtualDom$on,
+			event,
+			elm$virtual_dom$VirtualDom$MayStopPropagation(decoder));
+	});
+var elm$json$Json$Decode$at = F2(
+	function (fields, decoder) {
+		return A3(elm$core$List$foldr, elm$json$Json$Decode$field, decoder, fields);
+	});
+var elm$html$Html$Events$targetValue = A2(
+	elm$json$Json$Decode$at,
+	_List_fromArray(
+		['target', 'value']),
+	elm$json$Json$Decode$string);
+var elm$html$Html$Events$onInput = function (tagger) {
+	return A2(
+		elm$html$Html$Events$stopPropagationOn,
+		'input',
+		A2(
+			elm$json$Json$Decode$map,
+			elm$html$Html$Events$alwaysStop,
+			A2(elm$json$Json$Decode$map, tagger, elm$html$Html$Events$targetValue)));
+};
+var rundis$elm_bootstrap$Bootstrap$Form$Textarea$applyModifier = F2(
+	function (modifier, options) {
+		switch (modifier.$) {
+			case 'Id':
+				var id_ = modifier.a;
+				return _Utils_update(
+					options,
+					{
+						id: elm$core$Maybe$Just(id_)
+					});
+			case 'Rows':
+				var rows_ = modifier.a;
+				return _Utils_update(
+					options,
+					{
+						rows: elm$core$Maybe$Just(rows_)
+					});
+			case 'Disabled':
+				return _Utils_update(
+					options,
+					{disabled: true});
+			case 'Value':
+				var value_ = modifier.a;
+				return _Utils_update(
+					options,
+					{
+						value: elm$core$Maybe$Just(value_)
+					});
+			case 'OnInput':
+				var onInput_ = modifier.a;
+				return _Utils_update(
+					options,
+					{
+						onInput: elm$core$Maybe$Just(onInput_)
+					});
+			case 'Validation':
+				var validation = modifier.a;
+				return _Utils_update(
+					options,
+					{
+						validation: elm$core$Maybe$Just(validation)
+					});
+			default:
+				var attrs_ = modifier.a;
+				return _Utils_update(
+					options,
+					{
+						attributes: _Utils_ap(options.attributes, attrs_)
+					});
+		}
+	});
+var rundis$elm_bootstrap$Bootstrap$Form$Textarea$defaultOptions = {attributes: _List_Nil, disabled: false, id: elm$core$Maybe$Nothing, onInput: elm$core$Maybe$Nothing, rows: elm$core$Maybe$Nothing, validation: elm$core$Maybe$Nothing, value: elm$core$Maybe$Nothing};
+var rundis$elm_bootstrap$Bootstrap$Form$FormInternal$validationToString = function (validation) {
+	if (validation.$ === 'Success') {
+		return 'is-valid';
+	} else {
+		return 'is-invalid';
+	}
+};
+var rundis$elm_bootstrap$Bootstrap$Form$Textarea$validationAttribute = function (validation) {
+	return elm$html$Html$Attributes$class(
+		rundis$elm_bootstrap$Bootstrap$Form$FormInternal$validationToString(validation));
+};
+var rundis$elm_bootstrap$Bootstrap$Form$Textarea$toAttributes = function (modifiers) {
+	var options = A3(elm$core$List$foldl, rundis$elm_bootstrap$Bootstrap$Form$Textarea$applyModifier, rundis$elm_bootstrap$Bootstrap$Form$Textarea$defaultOptions, modifiers);
+	return _Utils_ap(
+		_List_fromArray(
+			[
+				elm$html$Html$Attributes$class('form-control'),
+				elm$html$Html$Attributes$disabled(options.disabled)
+			]),
+		_Utils_ap(
+			A2(
+				elm$core$List$filterMap,
+				elm$core$Basics$identity,
+				_List_fromArray(
+					[
+						A2(elm$core$Maybe$map, elm$html$Html$Attributes$id, options.id),
+						A2(elm$core$Maybe$map, elm$html$Html$Attributes$rows, options.rows),
+						A2(elm$core$Maybe$map, elm$html$Html$Attributes$value, options.value),
+						A2(elm$core$Maybe$map, elm$html$Html$Events$onInput, options.onInput),
+						A2(elm$core$Maybe$map, rundis$elm_bootstrap$Bootstrap$Form$Textarea$validationAttribute, options.validation)
+					])),
+			options.attributes));
+};
+var rundis$elm_bootstrap$Bootstrap$Form$Textarea$view = function (_n0) {
+	var options = _n0.a.options;
+	return A2(
+		elm$html$Html$textarea,
+		rundis$elm_bootstrap$Bootstrap$Form$Textarea$toAttributes(options),
+		_List_Nil);
+};
+var rundis$elm_bootstrap$Bootstrap$Form$Textarea$textarea = A2(elm$core$Basics$composeL, rundis$elm_bootstrap$Bootstrap$Form$Textarea$view, rundis$elm_bootstrap$Bootstrap$Form$Textarea$create);
+var rundis$elm_bootstrap$Bootstrap$Form$Textarea$Value = function (a) {
+	return {$: 'Value', a: a};
+};
+var rundis$elm_bootstrap$Bootstrap$Form$Textarea$value = function (value_) {
+	return rundis$elm_bootstrap$Bootstrap$Form$Textarea$Value(value_);
+};
+var rundis$elm_bootstrap$Bootstrap$Tab$Item = function (a) {
+	return {$: 'Item', a: a};
+};
+var rundis$elm_bootstrap$Bootstrap$Tab$item = function (rec) {
+	return rundis$elm_bootstrap$Bootstrap$Tab$Item(
+		{id: rec.id, link: rec.link, pane: rec.pane});
+};
+var rundis$elm_bootstrap$Bootstrap$Tab$Link = function (a) {
+	return {$: 'Link', a: a};
+};
+var rundis$elm_bootstrap$Bootstrap$Tab$link = F2(
+	function (attributes, children) {
+		return rundis$elm_bootstrap$Bootstrap$Tab$Link(
+			{attributes: attributes, children: children});
+	});
+var rundis$elm_bootstrap$Bootstrap$Tab$Pane = function (a) {
+	return {$: 'Pane', a: a};
+};
+var rundis$elm_bootstrap$Bootstrap$Tab$pane = F2(
+	function (attributes, children) {
+		return rundis$elm_bootstrap$Bootstrap$Tab$Pane(
+			{attributes: attributes, children: children});
+	});
+var author$project$Main$addTargetTab = rundis$elm_bootstrap$Bootstrap$Tab$item(
+	{
+		id: 'tabAddTarget',
+		link: A2(
+			rundis$elm_bootstrap$Bootstrap$Tab$link,
+			_List_Nil,
+			_List_fromArray(
+				[
+					elm$html$Html$text('+ Add Target')
+				])),
+		pane: A2(
+			rundis$elm_bootstrap$Bootstrap$Tab$pane,
+			_List_Nil,
+			_List_fromArray(
+				[
+					A2(
+					elm$html$Html$p,
+					_List_Nil,
+					_List_fromArray(
+						[
+							elm$html$Html$text('Cut & paste a Fool portfolio page here to add it as a target:'),
+							rundis$elm_bootstrap$Bootstrap$Form$Textarea$textarea(
+							_List_fromArray(
+								[
+									rundis$elm_bootstrap$Bootstrap$Form$Textarea$id('inputAddTarget'),
+									rundis$elm_bootstrap$Bootstrap$Form$Textarea$rows(4),
+									rundis$elm_bootstrap$Bootstrap$Form$Textarea$value(''),
+									rundis$elm_bootstrap$Bootstrap$Form$Textarea$onInput(author$project$Main$AddTargetInputMsg)
+								]))
+						])),
+					A2(
+					elm$html$Html$p,
+					_List_Nil,
+					_List_fromArray(
+						[
+							elm$html$Html$text('Make sure you are on a portfolio page like the below, then copy the '),
+							A2(
+							elm$html$Html$strong,
+							_List_Nil,
+							_List_fromArray(
+								[
+									elm$html$Html$text('entire')
+								])),
+							elm$html$Html$text(' page, with Ctrl+A, Ctrl+C.  Then click in the above text box and press Ctrl+V.')
+						])),
+					A2(
+					elm$html$Html$img,
+					_List_fromArray(
+						[
+							elm$html$Html$Attributes$src('fool-portfolio-page.png'),
+							A2(elm$html$Html$Attributes$style, 'display', 'block'),
+							A2(elm$html$Html$Attributes$style, 'width', '70%'),
+							A2(elm$html$Html$Attributes$style, 'margin', 'auto'),
+							A2(elm$html$Html$Attributes$style, 'border', '5px'),
+							A2(elm$html$Html$Attributes$style, 'border-style', 'outset')
+						]),
+					_List_Nil)
+				]))
+	});
+var author$project$Main$RevertTargetCashMsg = {$: 'RevertTargetCashMsg'};
+var author$project$Main$SwitchUseFoolAllocationMsg = function (a) {
+	return {$: 'SwitchUseFoolAllocationMsg', a: a};
+};
+var author$project$Main$UpdatePendingTargetCashMsg = function (a) {
+	return {$: 'UpdatePendingTargetCashMsg', a: a};
+};
+var author$project$Main$UpdateTargetCashMsg = {$: 'UpdateTargetCashMsg'};
 var elm$html$Html$button = _VirtualDom_node('button');
 var elm$core$Maybe$andThen = F2(
 	function (callback, maybeValue) {
@@ -10631,18 +10785,7 @@ var author$project$Main$ChangeIgnoreSymbolMsg = F2(
 	function (a, b) {
 		return {$: 'ChangeIgnoreSymbolMsg', a: a, b: b};
 	});
-var author$project$Transactions$transTypeToString = function (t) {
-	switch (t.$) {
-		case 'Ignore':
-			return 'Ignore';
-		case 'Sell':
-			return 'Sell';
-		case 'Buy':
-			return 'Buy';
-		default:
-			return 'Hold';
-	}
-};
+var author$project$Main$DownloadTransactionsMsg = {$: 'DownloadTransactionsMsg'};
 var elm$html$Html$Attributes$autocomplete = function (bool) {
 	return A2(
 		elm$html$Html$Attributes$stringProperty,
@@ -10691,6 +10834,17 @@ var author$project$Main$transactionsTab = F2(
 					_List_Nil,
 					_List_fromArray(
 						[
+							A2(
+							rundis$elm_bootstrap$Bootstrap$Button$button,
+							_List_fromArray(
+								[
+									rundis$elm_bootstrap$Bootstrap$Button$onClick(author$project$Main$DownloadTransactionsMsg),
+									rundis$elm_bootstrap$Bootstrap$Button$primary
+								]),
+							_List_fromArray(
+								[
+									elm$html$Html$text('Download transactions as .csv file')
+								])),
 							rundis$elm_bootstrap$Bootstrap$Table$simpleTable(
 							_Utils_Tuple2(
 								rundis$elm_bootstrap$Bootstrap$Table$simpleThead(
@@ -10774,7 +10928,7 @@ var author$project$Main$transactionsTab = F2(
 												[rundis$elm_bootstrap$Bootstrap$Table$cellPrimary]),
 											_List_fromArray(
 												[
-													elm$html$Html$text('Start Percent')
+													elm$html$Html$text('Start %')
 												])),
 											A2(
 											rundis$elm_bootstrap$Bootstrap$Table$th,
@@ -10798,7 +10952,7 @@ var author$project$Main$transactionsTab = F2(
 												[rundis$elm_bootstrap$Bootstrap$Table$cellPrimary]),
 											_List_fromArray(
 												[
-													elm$html$Html$text('End Percent')
+													elm$html$Html$text('End %')
 												])),
 											A2(
 											rundis$elm_bootstrap$Bootstrap$Table$th,
@@ -10814,7 +10968,7 @@ var author$project$Main$transactionsTab = F2(
 												[rundis$elm_bootstrap$Bootstrap$Table$cellPrimary]),
 											_List_fromArray(
 												[
-													elm$html$Html$text('Optimal Percent')
+													elm$html$Html$text('Optimal %')
 												]))
 										])),
 								A2(
@@ -10960,6 +11114,12 @@ var author$project$Main$transactionsTab = F2(
 						]))
 			});
 	});
+var elm$html$Html$Attributes$colspan = function (n) {
+	return A2(
+		_VirtualDom_attribute,
+		'colspan',
+		elm$core$String$fromInt(n));
+};
 var elm$html$Html$Keyed$ol = elm$html$Html$Keyed$node('ol');
 var elm$html$Html$li = _VirtualDom_node('li');
 var elm$html$Html$Events$onClick = function (msg) {
@@ -11017,7 +11177,6 @@ var pablen$toasty$Toasty$view = F4(
 				toasts));
 	});
 var elm$html$Html$h1 = _VirtualDom_node('h1');
-var elm$html$Html$p = _VirtualDom_node('p');
 var pablen$toasty$Toasty$Defaults$genericToast = F3(
 	function (variantClass, title, message) {
 		return A2(
@@ -11404,6 +11563,33 @@ var author$project$Main$view = function (model) {
 				[
 					rundis$elm_bootstrap$Bootstrap$CDN$stylesheet,
 					A2(
+					elm$html$Html$p,
+					_List_Nil,
+					_List_fromArray(
+						[
+							elm$html$Html$text('Log into your Fidelity account and download your portfolio like so:')
+						])),
+					A2(
+					elm$html$Html$img,
+					_List_fromArray(
+						[
+							elm$html$Html$Attributes$src('fidelity-download-button.png'),
+							A2(elm$html$Html$Attributes$style, 'display', 'block'),
+							A2(elm$html$Html$Attributes$style, 'width', '70%'),
+							A2(elm$html$Html$Attributes$style, 'margin', 'auto'),
+							A2(elm$html$Html$Attributes$style, 'border', '5px'),
+							A2(elm$html$Html$Attributes$style, 'border-style', 'outset')
+						]),
+					_List_Nil),
+					A2(elm$html$Html$p, _List_Nil, _List_Nil),
+					A2(
+					elm$html$Html$p,
+					_List_Nil,
+					_List_fromArray(
+						[
+							elm$html$Html$text('Then click this button to open the portfolio and get started:')
+						])),
+					A2(
 					rundis$elm_bootstrap$Bootstrap$Button$button,
 					_List_fromArray(
 						[
@@ -11493,9 +11679,9 @@ var author$project$Main$view = function (model) {
 									A2(
 									rundis$elm_bootstrap$Bootstrap$Table$tr,
 									_List_Nil,
-									_List_fromArray(
-										[
-											A2(
+									A2(
+										elm$core$List$cons,
+										A2(
 											rundis$elm_bootstrap$Bootstrap$Table$td,
 											_List_Nil,
 											_List_fromArray(
@@ -11503,53 +11689,69 @@ var author$project$Main$view = function (model) {
 													elm$html$Html$text(
 													A2(ggb$numeral_elm$Numeral$format, '$0,0.00', model.cash.startCash))
 												])),
-											A2(
-											rundis$elm_bootstrap$Bootstrap$Table$td,
-											_List_Nil,
-											author$project$Main$cashInput(model.cash)),
-											A2(
-											rundis$elm_bootstrap$Bootstrap$Table$td,
-											_List_Nil,
-											_List_fromArray(
-												[
-													elm$html$Html$text(
-													A2(ggb$numeral_elm$Numeral$format, '0.0%', model.cash.desiredEndCash / model.totalValue))
-												])),
-											A2(
-											rundis$elm_bootstrap$Bootstrap$Table$td,
-											_List_Nil,
-											_List_fromArray(
-												[
-													elm$html$Html$text(
-													A2(ggb$numeral_elm$Numeral$format, '$0,0.00', model.cash.actualEndCash))
-												])),
-											A2(
-											rundis$elm_bootstrap$Bootstrap$Table$td,
-											_List_Nil,
-											_List_fromArray(
-												[
-													elm$html$Html$text(
-													A2(ggb$numeral_elm$Numeral$format, '0.0%', model.cash.actualEndCash / model.totalValue))
-												]))
-										]))
+										elm$core$List$isEmpty(model.missions) ? _List_fromArray(
+											[
+												A2(
+												rundis$elm_bootstrap$Bootstrap$Table$td,
+												_List_fromArray(
+													[
+														rundis$elm_bootstrap$Bootstrap$Table$cellAttr(
+														elm$html$Html$Attributes$colspan(4))
+													]),
+												_List_fromArray(
+													[
+														elm$html$Html$text('Add a Target mission to get started')
+													]))
+											]) : _List_fromArray(
+											[
+												A2(
+												rundis$elm_bootstrap$Bootstrap$Table$td,
+												_List_Nil,
+												author$project$Main$cashInput(model.cash)),
+												A2(
+												rundis$elm_bootstrap$Bootstrap$Table$td,
+												_List_Nil,
+												_List_fromArray(
+													[
+														elm$html$Html$text(
+														A2(ggb$numeral_elm$Numeral$format, '0.0%', model.cash.desiredEndCash / model.totalValue))
+													])),
+												A2(
+												rundis$elm_bootstrap$Bootstrap$Table$td,
+												_List_Nil,
+												_List_fromArray(
+													[
+														elm$html$Html$text(
+														A2(ggb$numeral_elm$Numeral$format, '$0,0.00', model.cash.actualEndCash))
+													])),
+												A2(
+												rundis$elm_bootstrap$Bootstrap$Table$td,
+												_List_Nil,
+												_List_fromArray(
+													[
+														elm$html$Html$text(
+														A2(ggb$numeral_elm$Numeral$format, '0.0%', model.cash.actualEndCash / model.totalValue))
+													]))
+											])))
 								])))),
 					A2(
 					rundis$elm_bootstrap$Bootstrap$Tab$view,
 					model.tabState,
 					A2(
 						rundis$elm_bootstrap$Bootstrap$Tab$items,
-						elm$core$List$concat(
-							_List_fromArray(
-								[
-									_List_fromArray(
+						_Utils_ap(
+							elm$core$List$isEmpty(model.missions) ? _List_Nil : elm$core$List$concat(
+								_List_fromArray(
 									[
-										A2(author$project$Main$transactionsTab, model.ignoredSymbols, model.transactions),
-										author$project$Main$currentPositionsTab(model.currentPositions)
-									]),
-									A2(elm$core$List$indexedMap, author$project$Main$missionTab, model.missions),
-									_List_fromArray(
-									[author$project$Main$addTargetTab])
-								])),
+										_List_fromArray(
+										[
+											A2(author$project$Main$transactionsTab, model.ignoredSymbols, model.transactions),
+											author$project$Main$currentPositionsTab(model.currentPositions)
+										]),
+										A2(elm$core$List$indexedMap, author$project$Main$missionTab, model.missions)
+									])),
+							_List_fromArray(
+								[author$project$Main$addTargetTab])),
 						rundis$elm_bootstrap$Bootstrap$Tab$withAnimation(
 							rundis$elm_bootstrap$Bootstrap$Tab$config(author$project$Main$TabMsg)))),
 					A4(pablen$toasty$Toasty$view, author$project$Main$toastyConfig, pablen$toasty$Toasty$Defaults$view, author$project$Main$ToastyMsg, model.toasties)
