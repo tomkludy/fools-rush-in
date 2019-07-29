@@ -1,8 +1,9 @@
-module Transactions exposing (Transaction, TransactionType, CalculationResult, recalculate, transTypeToString)
+module Transactions exposing (Transaction, TransactionType, CalculationResult, recalculate, transTypeToString, toCsv)
 
 import CurrentPositions as CP
 import Utils as U
 import Missions as M
+import Numeral
 
 type alias Transaction =
     { transType : TransactionType
@@ -258,3 +259,50 @@ transTypeToString t =
         Sell -> "Sell"
         Buy -> "Buy"
         Hold -> "Hold"
+
+toCsv : CP.CashPosition -> List Transaction -> Float -> String
+toCsv cash transactions totalValue =
+    String.join "\n"
+        <| List.map (String.join ",")
+        <| [ [ U.toCsvField "Start cash"
+             , U.toCsvField "End cash"
+             , U.toCsvField "End cash %"
+             ]
+           , [ U.toCsvField <| Numeral.format "$0,0.00" cash.startCash
+             , U.toCsvField <| Numeral.format "$0,0.00" cash.actualEndCash
+             , U.toCsvField <| Numeral.format "0.0%" <| cash.actualEndCash / totalValue
+             ]
+           , []
+           , [ U.toCsvField "Action"
+             , U.toCsvField "Symbol"
+             , U.toCsvField "Description"
+             , U.toCsvField "# of Shares"
+             , U.toCsvField "Trade Value"
+             , U.toCsvField "Last Price"
+             , U.toCsvField "Start Shares"
+             , U.toCsvField "Start Amount"
+             , U.toCsvField "Start %"
+             , U.toCsvField "End Shares"
+             , U.toCsvField "End Amount"
+             , U.toCsvField "End %"
+             , U.toCsvField "Optimal Amount"
+             , U.toCsvField "Optimal %"
+             ]
+           ] ++ ( List.map (\t ->
+             [ U.toCsvField <| transTypeToString t.transType
+             , U.toCsvField t.symbol
+             , U.toCsvField t.description
+             , U.toCsvField <| String.fromInt t.numberOfShares
+             , U.toCsvField <| Numeral.format "$0,0.00" t.value
+             , U.toCsvField <| Numeral.format "$0,0.00" t.price
+             , U.toCsvField <| String.fromInt t.startShares
+             , U.toCsvField <| Numeral.format "$0,0.00" t.startAmount
+             , U.toCsvField <| Numeral.format "0.0%" <| t.startPercent / 100.0
+             , U.toCsvField <| String.fromInt t.endShares
+             , U.toCsvField <| Numeral.format "$0,0.00" t.endAmount
+             , U.toCsvField <| Numeral.format "0.0%" <| t.endPercent / 100.0
+             , U.toCsvField <| Numeral.format "$0,0.00" t.optimalAmount
+             , U.toCsvField <| Numeral.format "0.0%" <| t.optimalPercent / 100.0
+             ]
+           ) transactions )
+

@@ -1,4 +1,4 @@
-module Utils exposing (columnIdx, column, columnInt, columnFloat, listMerge, dec2)
+module Utils exposing (columnIdx, column, columnInt, columnFloat, listMerge, dec2, toCsvField)
 
 import List.Extra as L
 import Dict
@@ -45,3 +45,10 @@ listMerge keyFunc combineFunc lists =
 
 dec2 : Float -> Float
 dec2 f = toFloat (round <| f * 100.0) / 100.0
+
+toCsvField : String -> String
+toCsvField s =
+    let mustQuote = String.contains "\"" s || String.contains "," s
+        quoted = String.replace "\"" "\"\"" s
+    in
+    if mustQuote then "\"" ++ quoted ++ "\"" else s

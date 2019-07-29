@@ -4,6 +4,7 @@ import Html.Events exposing (onClick)
 import Html.Attributes exposing (class)
 import File exposing (File)
 import File.Select as Select
+import File.Download as Download
 import Task
 import List.Extra as L
 import Bootstrap.Table as Table
@@ -84,6 +85,7 @@ type Msg
     | ChangeIgnoreSymbolMsg String Bool
     | SendToJS Port.SendCommand
     | RecvFromJS D.Value
+    | DownloadTransactionsMsg
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
@@ -170,6 +172,12 @@ update msg model =
                 Err error -> ( model, Cmd.none ) |> addToastError error
                 Ok (Just (Port.IgnoredSymbolValue list)) -> ( { model | ignoredSymbols = list }, Cmd.none ) |> recalculate
                 Ok Nothing -> ( model, Cmd.none )
+        
+        DownloadTransactionsMsg ->
+            ( model
+            , T.toCsv model.cash model.transactions model.totalValue
+                |> Download.string "transactions.csv" "text/csv"
+            )
 
 
 -- VIEW
@@ -255,7 +263,8 @@ transactionsTab ignoredSymbols cp =
         { id = "tabTransactions"
         , link = Tab.link [] [ text "Transactions" ]
         , pane = Tab.pane []
-            [ Table.simpleTable
+            [ Button.button [ Button.onClick DownloadTransactionsMsg, Button.primary ] [ text "Download transactions as .csv file" ]
+            , Table.simpleTable
                 ( Table.simpleThead
                     [ Table.th [Table.cellPrimary] [ text "Ignore" ]
                     , Table.th [Table.cellPrimary] [ text "Action" ]
@@ -266,12 +275,12 @@ transactionsTab ignoredSymbols cp =
                     , Table.th [Table.cellPrimary] [ text "Last Price" ]
                     , Table.th [Table.cellPrimary] [ text "Start Shares" ]
                     , Table.th [Table.cellPrimary] [ text "Start Amount" ]
-                    , Table.th [Table.cellPrimary] [ text "Start Percent" ]
+                    , Table.th [Table.cellPrimary] [ text "Start %" ]
                     , Table.th [Table.cellPrimary] [ text "End Shares" ]
                     , Table.th [Table.cellPrimary] [ text "End Amount" ]
-                    , Table.th [Table.cellPrimary] [ text "End Percent" ]
+                    , Table.th [Table.cellPrimary] [ text "End %" ]
                     , Table.th [Table.cellPrimary] [ text "Optimal Amount" ]
-                    , Table.th [Table.cellPrimary] [ text "Optimal Percent" ]
+                    , Table.th [Table.cellPrimary] [ text "Optimal %" ]
                     ]
                 , Table.tbody []
                     (cp |> List.map (\p ->
