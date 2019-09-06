@@ -9009,8 +9009,17 @@ var author$project$Main$CurrentPositionsRequested = {$: 'CurrentPositionsRequest
 var author$project$Main$AddTargetInputMsg = function (a) {
 	return {$: 'AddTargetInputMsg', a: a};
 };
+var elm$html$Html$img = _VirtualDom_node('img');
+var elm$html$Html$p = _VirtualDom_node('p');
+var elm$html$Html$strong = _VirtualDom_node('strong');
 var elm$virtual_dom$VirtualDom$text = _VirtualDom_text;
 var elm$html$Html$text = elm$virtual_dom$VirtualDom$text;
+var elm$html$Html$Attributes$src = function (url) {
+	return A2(
+		elm$html$Html$Attributes$stringProperty,
+		'src',
+		_VirtualDom_noJavaScriptOrHtmlUri(url));
+};
 var rundis$elm_bootstrap$Bootstrap$Form$Textarea$Id = function (a) {
 	return {$: 'Id', a: a};
 };
@@ -9233,15 +9242,48 @@ var author$project$Main$addTargetTab = rundis$elm_bootstrap$Bootstrap$Tab$item(
 			_List_Nil,
 			_List_fromArray(
 				[
-					elm$html$Html$text('Cut & paste a Fool portfolio page here to add it as a target'),
-					rundis$elm_bootstrap$Bootstrap$Form$Textarea$textarea(
+					A2(
+					elm$html$Html$p,
+					_List_Nil,
 					_List_fromArray(
 						[
-							rundis$elm_bootstrap$Bootstrap$Form$Textarea$id('inputAddTarget'),
-							rundis$elm_bootstrap$Bootstrap$Form$Textarea$rows(4),
-							rundis$elm_bootstrap$Bootstrap$Form$Textarea$value(''),
-							rundis$elm_bootstrap$Bootstrap$Form$Textarea$onInput(author$project$Main$AddTargetInputMsg)
-						]))
+							elm$html$Html$text('Cut & paste a Fool portfolio page here to add it as a target:'),
+							rundis$elm_bootstrap$Bootstrap$Form$Textarea$textarea(
+							_List_fromArray(
+								[
+									rundis$elm_bootstrap$Bootstrap$Form$Textarea$id('inputAddTarget'),
+									rundis$elm_bootstrap$Bootstrap$Form$Textarea$rows(4),
+									rundis$elm_bootstrap$Bootstrap$Form$Textarea$value(''),
+									rundis$elm_bootstrap$Bootstrap$Form$Textarea$onInput(author$project$Main$AddTargetInputMsg)
+								]))
+						])),
+					A2(
+					elm$html$Html$p,
+					_List_Nil,
+					_List_fromArray(
+						[
+							elm$html$Html$text('Make sure you are on a portfolio page like the below, then copy the '),
+							A2(
+							elm$html$Html$strong,
+							_List_Nil,
+							_List_fromArray(
+								[
+									elm$html$Html$text('entire')
+								])),
+							elm$html$Html$text(' page, with Ctrl+A, Ctrl+C.  Then click in the above text box and press Ctrl+V.')
+						])),
+					A2(
+					elm$html$Html$img,
+					_List_fromArray(
+						[
+							elm$html$Html$Attributes$src('fool-portfolio-page.png'),
+							A2(elm$html$Html$Attributes$style, 'display', 'block'),
+							A2(elm$html$Html$Attributes$style, 'width', '70%'),
+							A2(elm$html$Html$Attributes$style, 'margin', 'auto'),
+							A2(elm$html$Html$Attributes$style, 'border', '5px'),
+							A2(elm$html$Html$Attributes$style, 'border-style', 'outset')
+						]),
+					_List_Nil)
 				]))
 	});
 var author$project$Main$RevertTargetCashMsg = {$: 'RevertTargetCashMsg'};
@@ -11076,6 +11118,12 @@ var author$project$Main$transactionsTab = F2(
 						]))
 			});
 	});
+var elm$html$Html$Attributes$colspan = function (n) {
+	return A2(
+		_VirtualDom_attribute,
+		'colspan',
+		elm$core$String$fromInt(n));
+};
 var elm$html$Html$Keyed$ol = elm$html$Html$Keyed$node('ol');
 var elm$html$Html$li = _VirtualDom_node('li');
 var elm$html$Html$Events$onClick = function (msg) {
@@ -11133,7 +11181,6 @@ var pablen$toasty$Toasty$view = F4(
 				toasts));
 	});
 var elm$html$Html$h1 = _VirtualDom_node('h1');
-var elm$html$Html$p = _VirtualDom_node('p');
 var pablen$toasty$Toasty$Defaults$genericToast = F3(
 	function (variantClass, title, message) {
 		return A2(
@@ -11520,6 +11567,33 @@ var author$project$Main$view = function (model) {
 				[
 					rundis$elm_bootstrap$Bootstrap$CDN$stylesheet,
 					A2(
+					elm$html$Html$p,
+					_List_Nil,
+					_List_fromArray(
+						[
+							elm$html$Html$text('Log into your Fidelity account and download your portfolio like so:')
+						])),
+					A2(
+					elm$html$Html$img,
+					_List_fromArray(
+						[
+							elm$html$Html$Attributes$src('fidelity-download-button.png'),
+							A2(elm$html$Html$Attributes$style, 'display', 'block'),
+							A2(elm$html$Html$Attributes$style, 'width', '70%'),
+							A2(elm$html$Html$Attributes$style, 'margin', 'auto'),
+							A2(elm$html$Html$Attributes$style, 'border', '5px'),
+							A2(elm$html$Html$Attributes$style, 'border-style', 'outset')
+						]),
+					_List_Nil),
+					A2(elm$html$Html$p, _List_Nil, _List_Nil),
+					A2(
+					elm$html$Html$p,
+					_List_Nil,
+					_List_fromArray(
+						[
+							elm$html$Html$text('Then click this button to open the portfolio and get started:')
+						])),
+					A2(
 					rundis$elm_bootstrap$Bootstrap$Button$button,
 					_List_fromArray(
 						[
@@ -11609,9 +11683,9 @@ var author$project$Main$view = function (model) {
 									A2(
 									rundis$elm_bootstrap$Bootstrap$Table$tr,
 									_List_Nil,
-									_List_fromArray(
-										[
-											A2(
+									A2(
+										elm$core$List$cons,
+										A2(
 											rundis$elm_bootstrap$Bootstrap$Table$td,
 											_List_Nil,
 											_List_fromArray(
@@ -11619,53 +11693,69 @@ var author$project$Main$view = function (model) {
 													elm$html$Html$text(
 													A2(ggb$numeral_elm$Numeral$format, '$0,0.00', model.cash.startCash))
 												])),
-											A2(
-											rundis$elm_bootstrap$Bootstrap$Table$td,
-											_List_Nil,
-											author$project$Main$cashInput(model.cash)),
-											A2(
-											rundis$elm_bootstrap$Bootstrap$Table$td,
-											_List_Nil,
-											_List_fromArray(
-												[
-													elm$html$Html$text(
-													A2(ggb$numeral_elm$Numeral$format, '0.0%', model.cash.desiredEndCash / model.totalValue))
-												])),
-											A2(
-											rundis$elm_bootstrap$Bootstrap$Table$td,
-											_List_Nil,
-											_List_fromArray(
-												[
-													elm$html$Html$text(
-													A2(ggb$numeral_elm$Numeral$format, '$0,0.00', model.cash.actualEndCash))
-												])),
-											A2(
-											rundis$elm_bootstrap$Bootstrap$Table$td,
-											_List_Nil,
-											_List_fromArray(
-												[
-													elm$html$Html$text(
-													A2(ggb$numeral_elm$Numeral$format, '0.0%', model.cash.actualEndCash / model.totalValue))
-												]))
-										]))
+										elm$core$List$isEmpty(model.missions) ? _List_fromArray(
+											[
+												A2(
+												rundis$elm_bootstrap$Bootstrap$Table$td,
+												_List_fromArray(
+													[
+														rundis$elm_bootstrap$Bootstrap$Table$cellAttr(
+														elm$html$Html$Attributes$colspan(4))
+													]),
+												_List_fromArray(
+													[
+														elm$html$Html$text('Add a Target mission to get started')
+													]))
+											]) : _List_fromArray(
+											[
+												A2(
+												rundis$elm_bootstrap$Bootstrap$Table$td,
+												_List_Nil,
+												author$project$Main$cashInput(model.cash)),
+												A2(
+												rundis$elm_bootstrap$Bootstrap$Table$td,
+												_List_Nil,
+												_List_fromArray(
+													[
+														elm$html$Html$text(
+														A2(ggb$numeral_elm$Numeral$format, '0.0%', model.cash.desiredEndCash / model.totalValue))
+													])),
+												A2(
+												rundis$elm_bootstrap$Bootstrap$Table$td,
+												_List_Nil,
+												_List_fromArray(
+													[
+														elm$html$Html$text(
+														A2(ggb$numeral_elm$Numeral$format, '$0,0.00', model.cash.actualEndCash))
+													])),
+												A2(
+												rundis$elm_bootstrap$Bootstrap$Table$td,
+												_List_Nil,
+												_List_fromArray(
+													[
+														elm$html$Html$text(
+														A2(ggb$numeral_elm$Numeral$format, '0.0%', model.cash.actualEndCash / model.totalValue))
+													]))
+											])))
 								])))),
 					A2(
 					rundis$elm_bootstrap$Bootstrap$Tab$view,
 					model.tabState,
 					A2(
 						rundis$elm_bootstrap$Bootstrap$Tab$items,
-						elm$core$List$concat(
-							_List_fromArray(
-								[
-									_List_fromArray(
+						_Utils_ap(
+							elm$core$List$isEmpty(model.missions) ? _List_Nil : elm$core$List$concat(
+								_List_fromArray(
 									[
-										A2(author$project$Main$transactionsTab, model.ignoredSymbols, model.transactions),
-										author$project$Main$currentPositionsTab(model.currentPositions)
-									]),
-									A2(elm$core$List$indexedMap, author$project$Main$missionTab, model.missions),
-									_List_fromArray(
-									[author$project$Main$addTargetTab])
-								])),
+										_List_fromArray(
+										[
+											A2(author$project$Main$transactionsTab, model.ignoredSymbols, model.transactions),
+											author$project$Main$currentPositionsTab(model.currentPositions)
+										]),
+										A2(elm$core$List$indexedMap, author$project$Main$missionTab, model.missions)
+									])),
+							_List_fromArray(
+								[author$project$Main$addTargetTab])),
 						rundis$elm_bootstrap$Bootstrap$Tab$withAnimation(
 							rundis$elm_bootstrap$Bootstrap$Tab$config(author$project$Main$TabMsg)))),
 					A4(pablen$toasty$Toasty$view, author$project$Main$toastyConfig, pablen$toasty$Toasty$Defaults$view, author$project$Main$ToastyMsg, model.toasties)

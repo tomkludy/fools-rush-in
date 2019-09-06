@@ -31,5 +31,5 @@ want.  Ignored trades are remembered in browser local storage so that you don't 
 
 Uses elm 0.19.
 
-`elm make src/Main.elm --output=out/main.js`
+`elm make src/Main.elm --output=main.js`
 

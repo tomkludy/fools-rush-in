@@ -1,7 +1,7 @@
 import Browser
-import Html exposing (Html, button, div, text)
+import Html exposing (Html, button, div, text, img, p, strong)
 import Html.Events exposing (onClick)
-import Html.Attributes exposing (class)
+import Html.Attributes exposing (class, src, colspan, width, style)
 import File exposing (File)
 import File.Select as Select
 import File.Download as Download
@@ -188,6 +188,17 @@ view model =
         0 ->
             Grid.container []
                 [ CDN.stylesheet
+                , p [] [ text "Log into your Fidelity account and download your portfolio like so:" ]
+                , img
+                    [ src "fidelity-download-button.png"
+                    , style "display" "block"
+                    , style "width" "70%"
+                    , style "margin" "auto"
+                    , style "border" "5px"
+                    , style "border-style" "outset"
+                    ] []
+                , p [] []
+                , p [] [ text "Then click this button to open the portfolio and get started:" ]
                 , Button.button [ Button.onClick CurrentPositionsRequested, Button.primary ] [ text "Load current positions" ]
                 , Toasty.view toastyConfig Toasty.Defaults.view ToastyMsg model.toasties
                 ]
@@ -205,22 +216,29 @@ view model =
                         , Table.th [Table.cellPrimary] [ text "Actual End Cash %" ]
                         ]
                     , Table.tbody []
-                        [ Table.tr []
-                            [ Table.td [] [ text <| Numeral.format "$0,0.00" model.cash.startCash ]
-                            , Table.td [] (cashInput model.cash)
-                            , Table.td [] [ text <| Numeral.format "0.0%" <| model.cash.desiredEndCash / model.totalValue ]
-                            , Table.td [] [ text <| Numeral.format "$0,0.00" model.cash.actualEndCash ]
-                            , Table.td [] [ text <| Numeral.format "0.0%" <| model.cash.actualEndCash / model.totalValue ]
-                            ]
+                        [ Table.tr [] <|
+                            (Table.td [] [ text <| Numeral.format "$0,0.00" model.cash.startCash ]
+                            ) :: (if List.isEmpty model.missions
+                                then
+                                    [ Table.td [ Table.cellAttr <| colspan 4 ] [ text "Add a Target mission to get started" ] ]
+                                else
+                                    [ Table.td [] (cashInput model.cash)
+                                    , Table.td [] [ text <| Numeral.format "0.0%" <| model.cash.desiredEndCash / model.totalValue ]
+                                    , Table.td [] [ text <| Numeral.format "$0,0.00" model.cash.actualEndCash ]
+                                    , Table.td [] [ text <| Numeral.format "0.0%" <| model.cash.actualEndCash / model.totalValue ]
+                                    ]
+                            )
                         ]
                     )
                 , Tab.config TabMsg
                     |> Tab.withAnimation
-                    |> Tab.items (List.concat
-                        [ [transactionsTab model.ignoredSymbols model.transactions, currentPositionsTab model.currentPositions]
-                        , List.indexedMap missionTab model.missions
-                        , [addTargetTab]
-                        ])
+                    |> Tab.items ((if List.isEmpty model.missions
+                            then []
+                            else List.concat
+                                [ [transactionsTab model.ignoredSymbols model.transactions, currentPositionsTab model.currentPositions]
+                                  , List.indexedMap missionTab model.missions
+                                ]
+                        ) ++ [addTargetTab])
                     |> Tab.view model.tabState
                 , Toasty.view toastyConfig Toasty.Defaults.view ToastyMsg model.toasties
                 ]
@@ -371,13 +389,28 @@ addTargetTab =
         { id = "tabAddTarget"
         , link = Tab.link [] [ text "+ Add Target" ]
         , pane = Tab.pane []
-            [ text "Cut & paste a Fool portfolio page here to add it as a target"
-            , Textarea.textarea
-                [ Textarea.id "inputAddTarget"
-                , Textarea.rows 4
-                , Textarea.value ""
-                , Textarea.onInput AddTargetInputMsg
+            [ p []
+                [ text "Cut & paste a Fool portfolio page here to add it as a target:"
+                , Textarea.textarea
+                    [ Textarea.id "inputAddTarget"
+                    , Textarea.rows 4
+                    , Textarea.value ""
+                    , Textarea.onInput AddTargetInputMsg
+                    ]
                 ]
+            , p []
+                [ text "Make sure you are on a portfolio page like the below, then copy the "
+                , strong [] [ text "entire" ]
+                , text " page, with Ctrl+A, Ctrl+C.  Then click in the above text box and press Ctrl+V."
+                ]
+            , img
+                [ src "fool-portfolio-page.png"
+                , style "display" "block"
+                , style "width" "70%"
+                , style "margin" "auto"
+                , style "border" "5px"
+                , style "border-style" "outset"
+                ] []
             ]
         }
 
