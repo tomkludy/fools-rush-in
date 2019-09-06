@@ -27,6 +27,7 @@ columnFloat row col =
         |> String.replace "$" ""
         |> String.replace "," ""
         |> String.replace "%" ""
+        |> String.replace " " ""
         |> String.toFloat 
         |> Maybe.withDefault 0.0
 
