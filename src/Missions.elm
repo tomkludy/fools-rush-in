@@ -19,10 +19,10 @@ parseMission : String -> Maybe Mission
 parseMission input =
     let lines = String.lines input
     in
-    case lines |> L.find (String.contains " PORTFOLIO") of
+    case lines |> L.find (\s -> (String.contains " PORTFOLIO" s) || (String.contains " PERFORMANCE" s)) of
         Nothing -> Nothing
         Just line -> Just
-            { name = (String.indexes " PORTFOLIO" line |> List.head |> Maybe.withDefault 0 |> String.slice 0) line
+            { name = (List.concat [String.indexes " PORTFOLIO" line, String.indexes " PERFORMANCE" line] |> List.head |> Maybe.withDefault 0 |> String.slice 0) line
             , missionPositions =
                 List.filterMap
                     (\l ->
