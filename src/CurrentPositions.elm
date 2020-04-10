@@ -4,7 +4,6 @@ module CurrentPositions exposing (
     setMatchFool, setPendingEndCash, commitPendingEndCash, revertPendingEndCash)
 
 import Csv
-import List.Extra as L
 import Utils as U
 
 -- MODEL

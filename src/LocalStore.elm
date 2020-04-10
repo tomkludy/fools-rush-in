@@ -1,8 +1,7 @@
-module LocalStore exposing (..)
+module LocalStore exposing (setLocalStore, getLocalStore, propRetrieved)
 
 import Json.Encode as E
 import Json.Decode as D
-import Json.Decode.Pipeline as P
 import Port
 
 propName : Port.LSSaveable -> E.Value

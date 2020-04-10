@@ -1,11 +1,11 @@
-port module Port exposing (..)
+port module Port exposing (getLocalStore, setLocalStore, recvLocalStore, LSSaveable(..), LSValueType(..))
 
 import Json.Encode as E
 import Json.Decode as D
 
-type SendCommand
-    = SetLocalStore LSValueType
-    | GetLocalStore LSSaveable
+-- type SendCommand
+--     = SetLocalStore LSValueType
+--     | GetLocalStore LSSaveable
 
 type LSSaveable
     = IgnoredSymbols

@@ -7383,7 +7383,7 @@ var author$project$Transactions$recalculate = F4(
 				return $.symbol;
 			},
 			F2(
-				function (current, mission) {
+				function (current, _n6) {
 					return current;
 				}),
 			elm$core$List$concat(
@@ -7407,11 +7407,9 @@ var author$project$Transactions$recalculate = F4(
 		var oldCash = cashPosition;
 		var desiredEndCash = function () {
 			if (cashPosition.matchFool) {
-				var _n6 = elm$core$List$isEmpty(missions);
-				if (_n6) {
+				if (elm$core$List$isEmpty(missions)) {
 					return totalValue;
 				} else {
-					var numMissions = elm$core$List$length(missions);
 					var foolCashAllocation = 100.0 - (totalAllocationPercentIncludingIgnored / elm$core$List$length(missions));
 					return author$project$Utils$dec2((totalValue * foolCashAllocation) / 100.0);
 				}
@@ -7495,22 +7493,13 @@ var author$project$Transactions$recalculate = F4(
 					return $.endAmount;
 				},
 				transactionsForAll)) - totalValueForTrades;
-		var spent = elm$core$List$sum(
-			A2(
-				elm$core$List$map,
-				function ($) {
-					return $.endAmount;
-				},
-				transactionsForAll));
 		var adjustment = (overage <= 0) ? elm$core$Maybe$Nothing : elm$core$List$head(
 			A2(
 				elm$core$List$sortWith,
 				F2(
 					function (_n3, _n4) {
-						var symbol1 = _n3.a;
 						var shares1 = _n3.b;
 						var error1 = _n3.c;
-						var symbol2 = _n4.a;
 						var shares2 = _n4.b;
 						var error2 = _n4.c;
 						var _n5 = A2(
@@ -7688,6 +7677,16 @@ var author$project$Missions$parseTargetLine = function (line) {
 			'',
 			elm$core$List$head(row))) ? author$project$Missions$parseOlderTargetLine(row) : author$project$Missions$parseNavigatorTargetLine(row);
 };
+var elm$core$Maybe$map = F2(
+	function (f, maybe) {
+		if (maybe.$ === 'Just') {
+			var value = maybe.a;
+			return elm$core$Maybe$Just(
+				f(value));
+		} else {
+			return elm$core$Maybe$Nothing;
+		}
+	});
 var elm$core$String$lines = _String_lines;
 var elm_community$list_extra$List$Extra$find = F2(
 	function (predicate, list) {
@@ -7712,16 +7711,10 @@ var elm_community$list_extra$List$Extra$find = F2(
 	});
 var author$project$Missions$parseMission = function (input) {
 	var lines = elm$core$String$lines(input);
-	var _n0 = A2(
-		elm_community$list_extra$List$Extra$find,
-		elm$core$String$contains(' PORTFOLIO'),
-		lines);
-	if (_n0.$ === 'Nothing') {
-		return elm$core$Maybe$Nothing;
-	} else {
-		var line = _n0.a;
-		return elm$core$Maybe$Just(
-			{
+	return A2(
+		elm$core$Maybe$map,
+		function (line) {
+			return {
 				missionPositions: A2(
 					elm$core$List$filterMap,
 					function (l) {
@@ -7737,9 +7730,20 @@ var author$project$Missions$parseMission = function (input) {
 						elm$core$Maybe$withDefault,
 						0,
 						elm$core$List$head(
-							A2(elm$core$String$indexes, ' PORTFOLIO', line))))(line)
-			});
-	}
+							elm$core$List$concat(
+								_List_fromArray(
+									[
+										A2(elm$core$String$indexes, ' PORTFOLIO', line),
+										A2(elm$core$String$indexes, ' PERFORMANCE', line)
+									])))))(line)
+			};
+		},
+		A2(
+			elm_community$list_extra$List$Extra$find,
+			function (s) {
+				return A2(elm$core$String$contains, ' PORTFOLIO', s) || A2(elm$core$String$contains, ' PERFORMANCE', s);
+			},
+			lines));
 };
 var author$project$Transactions$transTypeToString = function (t) {
 	switch (t.$) {
@@ -8941,16 +8945,10 @@ var author$project$Main$update = F2(
 			case 'ChangeIgnoreSymbolMsg':
 				var symbol = msg.a;
 				var ignore = msg.b;
-				var newIgnored = function () {
-					if (ignore) {
-						return A2(elm$core$List$cons, symbol, model.ignoredSymbols);
-					} else {
-						return A2(
-							elm$core$List$filter,
-							elm$core$Basics$neq(symbol),
-							model.ignoredSymbols);
-					}
-				}();
+				var newIgnored = ignore ? A2(elm$core$List$cons, symbol, model.ignoredSymbols) : A2(
+					elm$core$List$filter,
+					elm$core$Basics$neq(symbol),
+					model.ignoredSymbols);
 				return author$project$Main$recalculate(
 					_Utils_Tuple2(
 						_Utils_update(
@@ -8958,32 +8956,18 @@ var author$project$Main$update = F2(
 							{ignoredSymbols: newIgnored}),
 						author$project$LocalStore$setLocalStore(
 							author$project$Port$IgnoredSymbolValue(newIgnored))));
-			case 'SendToJS':
-				var cmd = msg.a;
-				if (cmd.$ === 'SetLocalStore') {
-					var v = cmd.a;
-					return _Utils_Tuple2(
-						model,
-						author$project$LocalStore$setLocalStore(
-							author$project$Port$IgnoredSymbolValue(model.ignoredSymbols)));
-				} else {
-					var v = cmd.a;
-					return _Utils_Tuple2(
-						model,
-						author$project$LocalStore$getLocalStore(author$project$Port$IgnoredSymbols));
-				}
 			case 'RecvFromJS':
 				var incoming = msg.a;
-				var _n5 = author$project$LocalStore$propRetrieved(incoming);
-				if (_n5.$ === 'Err') {
-					var error = _n5.a;
+				var _n3 = author$project$LocalStore$propRetrieved(incoming);
+				if (_n3.$ === 'Err') {
+					var error = _n3.a;
 					return A2(
 						author$project$Main$addToastError,
 						error,
 						_Utils_Tuple2(model, elm$core$Platform$Cmd$none));
 				} else {
-					if (_n5.a.$ === 'Just') {
-						var list = _n5.a.a.a;
+					if (_n3.a.$ === 'Just') {
+						var list = _n3.a.a.a;
 						return author$project$Main$recalculate(
 							_Utils_Tuple2(
 								_Utils_update(
@@ -8991,7 +8975,7 @@ var author$project$Main$update = F2(
 									{ignoredSymbols: list}),
 								elm$core$Platform$Cmd$none));
 					} else {
-						var _n6 = _n5.a;
+						var _n4 = _n3.a;
 						return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
 					}
 				}
@@ -9046,16 +9030,6 @@ var rundis$elm_bootstrap$Bootstrap$Form$Textarea$create = function (options) {
 		{options: options});
 };
 var elm$html$Html$textarea = _VirtualDom_node('textarea');
-var elm$core$Maybe$map = F2(
-	function (f, maybe) {
-		if (maybe.$ === 'Just') {
-			var value = maybe.a;
-			return elm$core$Maybe$Just(
-				f(value));
-		} else {
-			return elm$core$Maybe$Nothing;
-		}
-	});
 var elm$json$Json$Encode$bool = _Json_wrap;
 var elm$html$Html$Attributes$boolProperty = F2(
 	function (key, bool) {

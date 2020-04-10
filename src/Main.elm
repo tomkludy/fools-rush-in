@@ -1,12 +1,12 @@
+module Main exposing ( main )
 import Browser
 import Html exposing (Html, button, div, text, img, p, strong)
 import Html.Events exposing (onClick)
-import Html.Attributes exposing (class, src, colspan, width, style)
+import Html.Attributes exposing (src, colspan, style)
 import File exposing (File)
 import File.Select as Select
 import File.Download as Download
 import Task
-import List.Extra as L
 import Bootstrap.Table as Table
 import Bootstrap.CDN as CDN
 import Bootstrap.Grid as Grid
@@ -19,15 +19,14 @@ import Numeral
 import Toasty
 import Toasty.Defaults
 import CurrentPositions as CP
-import Utils as U
 import Missions as M
 import Transactions as T
 import Json.Decode as D
-import Json.Encode as E
 import Port
 import LocalStore as LS
 
 -- MAIN
+main : Program () Model Msg
 main =
     Browser.element
         { init = init
@@ -83,7 +82,7 @@ type Msg
     | UpdateTargetCashMsg
     | RevertTargetCashMsg
     | ChangeIgnoreSymbolMsg String Bool
-    | SendToJS Port.SendCommand
+    -- | SendToJS Port.SendCommand
     | RecvFromJS D.Value
     | DownloadTransactionsMsg
 
@@ -153,19 +152,19 @@ update msg model =
         
         ChangeIgnoreSymbolMsg symbol ignore ->
             let newIgnored =
-                    case ignore of
-                        True -> symbol::model.ignoredSymbols
-                        False -> List.filter ((/=) symbol) model.ignoredSymbols
+                    if ignore
+                        then symbol::model.ignoredSymbols
+                        else List.filter ((/=) symbol) model.ignoredSymbols
             in
             ( { model | ignoredSymbols = newIgnored }
             , LS.setLocalStore <| Port.IgnoredSymbolValue newIgnored
             )
                 |> recalculate
 
-        SendToJS cmd  ->
-            case cmd of
-                Port.SetLocalStore v -> ( model, LS.setLocalStore <| Port.IgnoredSymbolValue model.ignoredSymbols )
-                Port.GetLocalStore v -> ( model, LS.getLocalStore Port.IgnoredSymbols )
+        -- SendToJS cmd  ->
+        --     case cmd of
+        --         Port.SetLocalStore _ -> ( model, LS.setLocalStore <| Port.IgnoredSymbolValue model.ignoredSymbols )
+        --         Port.GetLocalStore _ -> ( model, LS.getLocalStore Port.IgnoredSymbols )
         
         RecvFromJS incoming ->
             case LS.propRetrieved incoming of
@@ -217,8 +216,8 @@ view model =
                         ]
                     , Table.tbody []
                         [ Table.tr [] <|
-                            (Table.td [] [ text <| Numeral.format "$0,0.00" model.cash.startCash ]
-                            ) :: (if List.isEmpty model.missions
+                            Table.td [] [ text <| Numeral.format "$0,0.00" model.cash.startCash ]
+                             :: (if List.isEmpty model.missions
                                 then
                                     [ Table.td [ Table.cellAttr <| colspan 4 ] [ text "Add a Target mission to get started" ] ]
                                 else
@@ -359,7 +358,7 @@ currentPositionsTab cp =
 missionTab : Int -> M.Mission -> Tab.Item Msg
 missionTab idx mission =
     Tab.item
-        { id = "tabMission" ++ (String.fromInt idx)
+        { id = "tabMission" ++ String.fromInt idx
         , link = Tab.link [] [ text mission.name ]
         , pane = Tab.pane []
             [ Table.simpleTable
