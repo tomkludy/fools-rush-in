@@ -1,7 +1,8 @@
 module Missions exposing (
     Mission, MissionPosition,
     addMission, parseMission, removeMission,
-    setUseDefaultWeight, setWeight, weightedPositions, unweightedPositions)
+    setUseDefaultWeight, setWeight, weightedPositions, unweightedPositions,
+    weightedCashReservePercent, unweightedCashReservePercent)
 
 import List.Extra as L
 import Utils as U
@@ -22,13 +23,31 @@ type alias Mission =
     { name : String
     , missionPositions : Private
     , weight : Maybe Float
+    , defaultWeight : Float
     }
 
+weightedCashReservePercent : Float -> Mission -> Float
+weightedCashReservePercent totalWeight mission =
+    let weight = Maybe.withDefault mission.defaultWeight mission.weight
+    in
+    (weight / totalWeight) * unweightedCashReservePercent mission
+
+unweightedCashReservePercent : Mission -> Float
+unweightedCashReservePercent mission =
+    let (Private missionPositions) = mission.missionPositions
+    in
+    missionPositions
+            |> List.map .allocationPercent
+            |> List.sum
+            |> \n -> 1.0 - (n / 100.0)
+            |> max 0.0
+            |> min 1.0
+
 weightedPositions : Float -> Mission -> List MissionPosition
-weightedPositions defaultWeight mission =
+weightedPositions totalWeight mission =
     let
         (Private missionPositions) = mission.missionPositions
-        weight = Maybe.withDefault defaultWeight mission.weight / 100.0
+        weight = Maybe.withDefault mission.defaultWeight mission.weight / totalWeight
         weighted position = { position | allocationPercent = position.allocationPercent * weight }
     in
     List.map weighted missionPositions
@@ -40,13 +59,15 @@ unweightedPositions mission =
     in
     missionPositions
 
-setUseDefaultWeight : Float -> Bool -> Mission -> Mission
-setUseDefaultWeight default useDefault mission =
-    { mission | weight = if useDefault then Nothing else Just default }
+setUseDefaultWeight : Bool -> Mission -> Mission
+setUseDefaultWeight useDefault mission =
+    if useDefault
+    then { mission | weight = Nothing }
+    else { mission | weight = Just mission.defaultWeight }
 
 setWeight : String -> Mission -> Mission
 setWeight value mission =
-    case value |> String.replace "$" "" |> String.replace "," "" |> String.toFloat of
+    case value |> strToFloat of
         Nothing -> mission
         Just v -> { mission | weight = Just v }
 
@@ -54,6 +75,11 @@ portfolioNameRegex : Regex.Regex
 portfolioNameRegex = 
     Maybe.withDefault Regex.never <|
         Regex.fromString "[^ ] (Portfolio|Performance)"
+
+portfolioValueRegex : Regex.Regex
+portfolioValueRegex =
+    Maybe.withDefault Regex.never <|
+        Regex.fromString "Total Value of Portfolio\\s+([^\\s]+)"
 
 -- builds a list of lines in reverse order;
 -- expects the head of "lines" to be the last line that was
@@ -67,34 +93,63 @@ keepPreviousLines l lines =
     in
     (a, b, l) :: lines
 
+extractName : String -> String
+extractName line =
+    let
+        slicer = List.concat [ String.indexes " Portfolio" line, String.indexes " Performance" line ]
+            |> List.head
+            |> Maybe.withDefault 0
+            |> String.slice 0
+    in slicer line
+
+findJust : (a -> Maybe b) -> List a -> Maybe b
+findJust predicate list =
+    case list of
+       [] -> Nothing
+       item::remain -> case predicate item of
+          Nothing -> findJust predicate remain
+          Just result -> Just result
+
+strToFloat : String -> Maybe Float
+strToFloat str =
+    str
+        |> String.replace "$" ""
+        |> String.replace "%" ""
+        |> String.replace "," ""
+        |> String.toFloat
+
+
 parseMission : String -> Maybe Mission
 parseMission input =
     let
         lines = String.lines input
+        missionPositions = List.foldl keepPreviousLines [] lines
+            |> List.reverse
+            |> List.filterMap
+                (\(a,b,l) ->
+                    if (List.length (String.indexes "%" l) < 2)
+                    || (List.length (String.indexes "$" l) < 2)
+                    then Nothing
+                    else parseTargetLine a b l
+                )
+        portfolioValue = lines
+            |> findJust (Regex.findAtMost 1 portfolioValueRegex >> List.head)
+            |> Maybe.andThen (.submatches >> Just)
+            |> Maybe.andThen List.head
+            |> Maybe.andThen identity
+            |> Maybe.andThen strToFloat
+            |> Maybe.withDefault 100.0
     in
     lines
-        |> L.find (\s -> Regex.contains portfolioNameRegex s)
-        |> Maybe.map (\line ->
-                { name = (
-                        List.concat [ String.indexes " Portfolio" line, String.indexes " Performance" line ]
-                            |> List.head
-                            |> Maybe.withDefault 0
-                            |> String.slice 0
-                        ) line
-                , missionPositions = Private (
-                    List.foldl keepPreviousLines [] lines
-                        |> List.reverse
-                        |> List.filterMap
-                            (\(a,b,l) ->
-                                if (List.length (String.indexes "%" l) < 2)
-                                || (List.length (String.indexes "$" l) < 2)
-                                then Nothing
-                                else parseTargetLine a b l
-                            ))
-                , weight = Nothing
-                }
-            )
-
+        |> L.find (Regex.contains portfolioNameRegex)
+        |> Maybe.andThen (Just << extractName)
+        |> Maybe.andThen (\name -> Just
+            { name = name
+            , missionPositions = Private missionPositions
+            , weight = Nothing
+            , defaultWeight = portfolioValue
+            }
+        )
 
 addMission : Mission -> List Mission -> List Mission
 addMission m list =

@@ -157,7 +157,7 @@ update msg model =
         
         SwitchUseDefaultWeightMsg idx enable ->
             ( { model | missions = U.updateListItem idx model.missions
-                <| M.setUseDefaultWeight (T.weightPerUnweightedMission model.missions) enable
+                <| M.setUseDefaultWeight enable
               }, Cmd.none )
                 |> recalculate
 
@@ -253,12 +253,18 @@ view model =
                             then []
                             else List.concat
                                 [ [transactionsTab model.ignoredSymbols model.transactions, currentPositionsTab model.currentPositions]
-                                  , List.indexedMap (missionTab (T.weightPerUnweightedMission model.missions)) model.missions
+                                  , List.indexedMap (missionTab <| calcTotalWeight model.missions) model.missions
                                 ]
                         ) ++ [addTargetTab])
                     |> Tab.view model.tabState
                 , Toasty.view toastyConfig Toasty.Defaults.view ToastyMsg model.toasties
                 ]
+
+calcTotalWeight : List M.Mission -> Float
+calcTotalWeight missions =
+    missions
+        |> List.map (\m -> Maybe.withDefault m.defaultWeight m.weight)
+        |> List.sum
 
 cashInput : CP.CashPosition -> List (Html.Html Msg)
 cashInput c =
@@ -374,12 +380,14 @@ currentPositionsTab cp =
         }
 
 missionTab : Float -> Int -> M.Mission -> Tab.Item Msg
-missionTab defaultWeight idx mission =
+missionTab totalWeight idx mission =
     Tab.item
         { id = "tabMission" ++ String.fromInt idx
-        , link = Tab.link [] [ text <| mission.name ++ " (" ++ Numeral.format "0%" (Maybe.withDefault defaultWeight mission.weight / 100) ++ ")"]
+        , link = Tab.link [] [ text <| mission.name ++ " (" ++ Numeral.format "0%" (Maybe.withDefault mission.defaultWeight mission.weight / totalWeight) ++ ")"]
         , pane = Tab.pane []
-            [ Html.div [] <| weightInput defaultWeight idx mission
+            [ Html.div [] <| weightInput idx mission
+            , Html.div [] [ text <| "Unweighted cash reserve: " ++ Numeral.format "0.0%" (M.unweightedCashReservePercent mission)]
+            , Html.div [] [ text <| "Weighted cash reserve: " ++ Numeral.format "0.0%" (M.weightedCashReservePercent totalWeight mission)]
             , Table.simpleTable
                 ( Table.simpleThead
                     [ Table.th [Table.cellPrimary] [ text "Symbol" ]
@@ -401,26 +409,22 @@ missionTab defaultWeight idx mission =
             ]
         }
 
-weightInput : Float -> Int -> M.Mission -> List (Html.Html Msg)
-weightInput defaultWeight idx mission =
-    List.concat 
-        [   [ Checkbox.checkbox
-                [ Checkbox.id ("useDefaultWeightChk" ++ String.fromInt idx)
-                , Checkbox.checked <| U.isNothing mission.weight
-                , Checkbox.onCheck (SwitchUseDefaultWeightMsg idx)
-                ] "Use default weight"
-              ]
-            , case mission.weight of
-                Nothing -> [ text <| String.fromFloat defaultWeight ]
-                Just weight ->
-                    [ Input.number
-                        [ Input.id ("defaultWeightInput" ++ String.fromInt idx)
-                        , Input.small
-                        , Input.value (String.fromFloat weight)
-                        , Input.onInput (UpdateWeightMsg idx)
-                        ]
-                    ]
-        ]
+weightInput : Int -> M.Mission -> List (Html.Html Msg)
+weightInput idx mission =
+    [ Checkbox.checkbox
+        [ Checkbox.id ("useDefaultWeightChk" ++ String.fromInt idx)
+        , Checkbox.checked <| U.isNothing mission.weight
+        , Checkbox.onCheck (SwitchUseDefaultWeightMsg idx)
+        ] "Use default weight"
+    , case mission.weight of
+        Nothing -> text <| "Fool allocation: " ++ String.fromFloat mission.defaultWeight
+        Just weight -> Input.number
+            [ Input.id ("defaultWeightInput" ++ String.fromInt idx)
+            , Input.small
+            , Input.value (String.fromFloat weight)
+            , Input.onInput (UpdateWeightMsg idx)
+            ]
+    ]
 
 addTargetTab : Tab.Item Msg
 addTargetTab =

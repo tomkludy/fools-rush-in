@@ -1,5 +1,5 @@
 module Transactions exposing (CalculationResult, Transaction, TransactionType,
-    recalculate, toCsv, transTypeToString, weightPerUnweightedMission)
+    recalculate, toCsv, transTypeToString)
 
 import CurrentPositions as CP
 import Missions as M
@@ -78,9 +78,9 @@ recalculate currentPositions cashPosition missions ignoredSymbols =
         totalValueNotIgnored =
             cashPosition.startCash + valueOfNonIgnoredPositions
         
-        defaultWeight = weightPerUnweightedMission missions
+        totalWeight = missions |> List.map (\m -> Maybe.withDefault m.defaultWeight m.weight) |> List.sum
 
-        missionPositions = M.weightedPositions defaultWeight
+        missionPositions = M.weightedPositions totalWeight
 
         -- Normalize the non-ignored mission positions so that if two
         -- missions have the same stock, that's merged into one target
@@ -180,10 +180,12 @@ recalculate currentPositions cashPosition missions ignoredSymbols =
                 then totalValue
                 else
                     let
-                        foolCashAllocation =
-                            100.0 - (totalAllocationPercentIncludingIgnored / toFloat (List.length missions))
+                        foolCashAllocation = missions
+                            |> List.map (M.weightedCashReservePercent totalWeight)
+                            |> List.sum
+                            -- 100.0 - (totalAllocationPercentIncludingIgnored / toFloat (List.length missions))
                     in
-                    U.dec2 <| totalValue * foolCashAllocation / 100.0
+                    U.dec2 <| totalValue * foolCashAllocation
 
             else
                 cashPosition.desiredEndCash
@@ -394,24 +396,3 @@ toCsv cash transactions totalValue =
                         ]
                     )
                     transactions
-
-
-weightPerUnweightedMission : List M.Mission -> Float
-weightPerUnweightedMission missions =
-    let
-        weighted = missions
-            |> List.filterMap .weight
-        totalWeighted = weighted
-            |> List.sum
-        totalUnweighted =
-            if totalWeighted >= 100.0
-            then 0.0
-            else 100.0 - totalWeighted
-        numUnweighted =
-            List.length missions - List.length weighted
-        fixed =
-            if numUnweighted == 0
-            then 1.0
-            else toFloat numUnweighted
-    in
-    totalUnweighted / fixed
