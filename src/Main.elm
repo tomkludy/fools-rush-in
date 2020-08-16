@@ -24,6 +24,7 @@ import Transactions as T
 import Json.Decode as D
 import Port
 import LocalStore as LS
+import Utils as U
 
 -- MAIN
 main : Program () Model Msg
@@ -46,6 +47,7 @@ type alias Model =
     , toasties : Toasty.Stack Toasty.Defaults.Toast
     , ignoredSymbols : List String
     , totalValue : Float
+    , totalValueIgnored : Float
     , totalValueForTrades : Float
     }
 
@@ -60,6 +62,7 @@ init _ =
         , toasties = Toasty.initialState
         , ignoredSymbols = []
         , totalValue = 0.0
+        , totalValueIgnored = 0.0
         , totalValueForTrades = 0.0
         }
     , LS.getLocalStore Port.IgnoredSymbols
@@ -81,6 +84,8 @@ type Msg
     | UpdatePendingTargetCashMsg String
     | UpdateTargetCashMsg
     | RevertTargetCashMsg
+    | SwitchUseDefaultWeightMsg Int Bool
+    | UpdateWeightMsg Int String
     | ChangeIgnoreSymbolMsg String Bool
     -- | SendToJS Port.SendCommand
     | RecvFromJS D.Value
@@ -150,6 +155,18 @@ update msg model =
             ( { model | cash = CP.revertPendingEndCash model.cash }, Cmd.none )
                 |> recalculate
         
+        SwitchUseDefaultWeightMsg idx enable ->
+            ( { model | missions = U.updateListItem idx model.missions
+                <| M.setUseDefaultWeight (T.weightPerUnweightedMission model.missions) enable
+              }, Cmd.none )
+                |> recalculate
+
+        UpdateWeightMsg idx value ->
+            ( { model | missions = U.updateListItem idx model.missions
+                <| M.setWeight value
+              }, Cmd.none )
+                |> recalculate
+
         ChangeIgnoreSymbolMsg symbol ignore ->
             let newIgnored =
                     if ignore
@@ -205,6 +222,7 @@ view model =
             Grid.container []
                 [ CDN.stylesheet
                 , div [] [ text <| "Total value (cash + stock): " ++ Numeral.format "$0,0.00" model.totalValue ]
+                , div [] [ text <| "Total reserved stock value (i.e. owned and ignored): " ++ Numeral.format "$0,0.00" model.totalValueIgnored ]
                 , div [] [ text <| "Total value for trade (i.e. not ignored or reserved as cash): " ++ Numeral.format "$0,0.00" model.totalValueForTrades ]
                 , Table.simpleTable
                     ( Table.simpleThead
@@ -235,7 +253,7 @@ view model =
                             then []
                             else List.concat
                                 [ [transactionsTab model.ignoredSymbols model.transactions, currentPositionsTab model.currentPositions]
-                                  , List.indexedMap missionTab model.missions
+                                  , List.indexedMap (missionTab (T.weightPerUnweightedMission model.missions)) model.missions
                                 ]
                         ) ++ [addTargetTab])
                     |> Tab.view model.tabState
@@ -355,13 +373,14 @@ currentPositionsTab cp =
             ]
         }
 
-missionTab : Int -> M.Mission -> Tab.Item Msg
-missionTab idx mission =
+missionTab : Float -> Int -> M.Mission -> Tab.Item Msg
+missionTab defaultWeight idx mission =
     Tab.item
         { id = "tabMission" ++ String.fromInt idx
-        , link = Tab.link [] [ text mission.name ]
+        , link = Tab.link [] [ text <| mission.name ++ " (" ++ Numeral.format "0%" (Maybe.withDefault defaultWeight mission.weight / 100) ++ ")"]
         , pane = Tab.pane []
-            [ Table.simpleTable
+            [ Html.div [] <| weightInput defaultWeight idx mission
+            , Table.simpleTable
                 ( Table.simpleThead
                     [ Table.th [Table.cellPrimary] [ text "Symbol" ]
                     , Table.th [Table.cellPrimary] [ text "Description" ]
@@ -369,7 +388,7 @@ missionTab idx mission =
                     , Table.th [Table.cellPrimary] [ text "Current Price" ]
                     ]
                 , Table.tbody []
-                    (mission.missionPositions |> List.map (\p ->
+                    (M.unweightedPositions mission |> List.map (\p ->
                         Table.tr []
                             [ Table.td [] [ text p.symbol ]
                             , Table.td [] [ text p.description ]
@@ -381,6 +400,27 @@ missionTab idx mission =
             , Button.button [ Button.onClick (RemoveTargetRequested mission), Button.primary ] [ text "Remove Target" ]
             ]
         }
+
+weightInput : Float -> Int -> M.Mission -> List (Html.Html Msg)
+weightInput defaultWeight idx mission =
+    List.concat 
+        [   [ Checkbox.checkbox
+                [ Checkbox.id ("useDefaultWeightChk" ++ String.fromInt idx)
+                , Checkbox.checked <| U.isNothing mission.weight
+                , Checkbox.onCheck (SwitchUseDefaultWeightMsg idx)
+                ] "Use default weight"
+              ]
+            , case mission.weight of
+                Nothing -> [ text <| String.fromFloat defaultWeight ]
+                Just weight ->
+                    [ Input.number
+                        [ Input.id ("defaultWeightInput" ++ String.fromInt idx)
+                        , Input.small
+                        , Input.value (String.fromFloat weight)
+                        , Input.onInput (UpdateWeightMsg idx)
+                        ]
+                    ]
+        ]
 
 addTargetTab : Tab.Item Msg
 addTargetTab =
@@ -446,6 +486,6 @@ recalculate (model, msg) =
         | transactions = result.transactions
         , cash = result.cashPosition
         , totalValue = result.totalValue
+        , totalValueIgnored = result.totalValueIgnored
         , totalValueForTrades = result.totalValueForTrades
     }, msg)
-

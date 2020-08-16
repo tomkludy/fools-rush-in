@@ -1,4 +1,5 @@
-module Transactions exposing (CalculationResult, Transaction, TransactionType, recalculate, toCsv, transTypeToString)
+module Transactions exposing (CalculationResult, Transaction, TransactionType,
+    recalculate, toCsv, transTypeToString, weightPerUnweightedMission)
 
 import CurrentPositions as CP
 import Missions as M
@@ -35,6 +36,7 @@ type alias CalculationResult =
     { transactions : List Transaction
     , cashPosition : CP.CashPosition
     , totalValue : Float
+    , totalValueIgnored : Float
     , totalValueForTrades : Float
     }
 
@@ -64,11 +66,21 @@ recalculate currentPositions cashPosition missions ignoredSymbols =
                 |> List.map .currentValue
                 |> List.sum
 
+        valueOfIgnoredPositions =
+            currentPositions
+                |> List.filter ignored
+                |> List.map .currentValue
+                |> List.sum
+
         totalValue =
             cashPosition.startCash + valueOfAllPositions
 
         totalValueNotIgnored =
             cashPosition.startCash + valueOfNonIgnoredPositions
+        
+        defaultWeight = weightPerUnweightedMission missions
+
+        missionPositions = M.weightedPositions defaultWeight
 
         -- Normalize the non-ignored mission positions so that if two
         -- missions have the same stock, that's merged into one target
@@ -76,7 +88,7 @@ recalculate currentPositions cashPosition missions ignoredSymbols =
         -- allocation percents add up to 100%
         allNonIgnoredMissionPositions =
             missions
-                |> List.map .missionPositions
+                |> List.map missionPositions
                 |> List.concat
                 |> List.filter notIgnored
                 |> U.listMerge .symbol
@@ -89,7 +101,7 @@ recalculate currentPositions cashPosition missions ignoredSymbols =
 
         totalAllocationPercentIncludingIgnored =
             missions
-                |> List.map .missionPositions
+                |> List.map missionPositions
                 |> List.concat
                 |> List.map .allocationPercent
                 |> List.sum
@@ -135,7 +147,7 @@ recalculate currentPositions cashPosition missions ignoredSymbols =
         -- position coming from any mission
         transactionsForIgnored =
             missions
-                |> List.map .missionPositions
+                |> List.map missionPositions
                 |> List.concat
                 |> List.filter ignored
                 |> List.map
@@ -313,6 +325,7 @@ recalculate currentPositions cashPosition missions ignoredSymbols =
     { transactions = completeTransactions
     , cashPosition = newCash
     , totalValue = totalValue
+    , totalValueIgnored = valueOfIgnoredPositions
     , totalValueForTrades = totalValueForTrades
     }
 
@@ -381,3 +394,24 @@ toCsv cash transactions totalValue =
                         ]
                     )
                     transactions
+
+
+weightPerUnweightedMission : List M.Mission -> Float
+weightPerUnweightedMission missions =
+    let
+        weighted = missions
+            |> List.filterMap .weight
+        totalWeighted = weighted
+            |> List.sum
+        totalUnweighted =
+            if totalWeighted >= 100.0
+            then 0.0
+            else 100.0 - totalWeighted
+        numUnweighted =
+            List.length missions - List.length weighted
+        fixed =
+            if numUnweighted == 0
+            then 1.0
+            else toFloat numUnweighted
+    in
+    totalUnweighted / fixed

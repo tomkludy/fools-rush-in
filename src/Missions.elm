@@ -1,4 +1,7 @@
-module Missions exposing (Mission, MissionPosition, addMission, parseMission, removeMission)
+module Missions exposing (
+    Mission, MissionPosition,
+    addMission, parseMission, removeMission,
+    setUseDefaultWeight, setWeight, weightedPositions, unweightedPositions)
 
 import List.Extra as L
 import Utils as U
@@ -13,10 +16,39 @@ type alias MissionPosition =
     }
 
 
+type Private = Private (List MissionPosition)
+
 type alias Mission =
     { name : String
-    , missionPositions : List MissionPosition
+    , missionPositions : Private
+    , weight : Maybe Float
     }
+
+weightedPositions : Float -> Mission -> List MissionPosition
+weightedPositions defaultWeight mission =
+    let
+        (Private missionPositions) = mission.missionPositions
+        weight = Maybe.withDefault defaultWeight mission.weight / 100.0
+        weighted position = { position | allocationPercent = position.allocationPercent * weight }
+    in
+    List.map weighted missionPositions
+
+unweightedPositions : Mission -> List MissionPosition
+unweightedPositions mission =
+    let
+        (Private missionPositions) = mission.missionPositions
+    in
+    missionPositions
+
+setUseDefaultWeight : Float -> Bool -> Mission -> Mission
+setUseDefaultWeight default useDefault mission =
+    { mission | weight = if useDefault then Nothing else Just default }
+
+setWeight : String -> Mission -> Mission
+setWeight value mission =
+    case value |> String.replace "$" "" |> String.replace "," "" |> String.toFloat of
+        Nothing -> mission
+        Just v -> { mission | weight = Just v }
 
 portfolioNameRegex : Regex.Regex
 portfolioNameRegex = 
@@ -49,7 +81,7 @@ parseMission input =
                             |> Maybe.withDefault 0
                             |> String.slice 0
                         ) line
-                , missionPositions =
+                , missionPositions = Private (
                     List.foldl keepPreviousLines [] lines
                         |> List.reverse
                         |> List.filterMap
@@ -58,7 +90,8 @@ parseMission input =
                                 || (List.length (String.indexes "$" l) < 2)
                                 then Nothing
                                 else parseTargetLine a b l
-                            )
+                            ))
+                , weight = Nothing
                 }
             )
 

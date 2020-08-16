@@ -5611,7 +5611,7 @@ var $pablen$toasty$Toasty$initialState = A2(
 	$elm$random$Random$initialSeed(0));
 var $author$project$Main$init = function (_v0) {
 	return _Utils_Tuple2(
-		{cash: $author$project$CurrentPositions$initCashPosition, currentPositions: $author$project$CurrentPositions$initCurrentPositions, ignoredSymbols: _List_Nil, missions: _List_Nil, tabState: $rundis$elm_bootstrap$Bootstrap$Tab$initialState, toasties: $pablen$toasty$Toasty$initialState, totalValue: 0.0, totalValueForTrades: 0.0, transactions: _List_Nil},
+		{cash: $author$project$CurrentPositions$initCashPosition, currentPositions: $author$project$CurrentPositions$initCurrentPositions, ignoredSymbols: _List_Nil, missions: _List_Nil, tabState: $rundis$elm_bootstrap$Bootstrap$Tab$initialState, toasties: $pablen$toasty$Toasty$initialState, totalValue: 0.0, totalValueForTrades: 0.0, totalValueIgnored: 0.0, transactions: _List_Nil},
 		$author$project$LocalStore$getLocalStore($author$project$Port$IgnoredSymbols));
 };
 var $author$project$Main$RecvFromJS = function (a) {
@@ -7013,6 +7013,9 @@ var $author$project$CurrentPositions$parseCurrentPositions = function (content) 
 			$elm$core$Debug$toString,
 			$periodic$elm_csv$Csv$parse(content)));
 };
+var $author$project$Missions$Private = function (a) {
+	return {$: 'Private', a: a};
+};
 var $elm$core$List$append = F2(
 	function (xs, ys) {
 		if (!ys.b) {
@@ -7118,18 +7121,19 @@ var $author$project$Missions$parseMission = function (input) {
 		$elm$core$Maybe$map,
 		function (line) {
 			return {
-				missionPositions: A2(
-					$elm$core$List$filterMap,
-					function (_v0) {
-						var a = _v0.a;
-						var b = _v0.b;
-						var l = _v0.c;
-						return (($elm$core$List$length(
-							A2($elm$core$String$indexes, '%', l)) < 2) || ($elm$core$List$length(
-							A2($elm$core$String$indexes, '$', l)) < 2)) ? $elm$core$Maybe$Nothing : A3($author$project$Missions$parseTargetLine, a, b, l);
-					},
-					$elm$core$List$reverse(
-						A3($elm$core$List$foldl, $author$project$Missions$keepPreviousLines, _List_Nil, lines))),
+				missionPositions: $author$project$Missions$Private(
+					A2(
+						$elm$core$List$filterMap,
+						function (_v0) {
+							var a = _v0.a;
+							var b = _v0.b;
+							var l = _v0.c;
+							return (($elm$core$List$length(
+								A2($elm$core$String$indexes, '%', l)) < 2) || ($elm$core$List$length(
+								A2($elm$core$String$indexes, '$', l)) < 2)) ? $elm$core$Maybe$Nothing : A3($author$project$Missions$parseTargetLine, a, b, l);
+						},
+						$elm$core$List$reverse(
+							A3($elm$core$List$foldl, $author$project$Missions$keepPreviousLines, _List_Nil, lines)))),
 				name: A2(
 					$elm$core$String$slice,
 					0,
@@ -7142,7 +7146,8 @@ var $author$project$Missions$parseMission = function (input) {
 									[
 										A2($elm$core$String$indexes, ' Portfolio', line),
 										A2($elm$core$String$indexes, ' Performance', line)
-									])))))(line)
+									])))))(line),
+				weight: $elm$core$Maybe$Nothing
 			};
 		},
 		A2(
@@ -7410,6 +7415,31 @@ var $author$project$Utils$listMerge = F3(
 							lists)))));
 	});
 var $elm$core$List$sortWith = _List_sortWith;
+var $author$project$Transactions$weightPerUnweightedMission = function (missions) {
+	var weighted = A2(
+		$elm$core$List$filterMap,
+		function ($) {
+			return $.weight;
+		},
+		missions);
+	var totalWeighted = $elm$core$List$sum(weighted);
+	var totalUnweighted = (totalWeighted >= 100.0) ? 0.0 : (100.0 - totalWeighted);
+	var numUnweighted = $elm$core$List$length(missions) - $elm$core$List$length(weighted);
+	var fixed = (!numUnweighted) ? 1.0 : numUnweighted;
+	return totalUnweighted / fixed;
+};
+var $author$project$Missions$weightedPositions = F2(
+	function (defaultWeight, mission) {
+		var weight = A2($elm$core$Maybe$withDefault, defaultWeight, mission.weight) / 100.0;
+		var weighted = function (position) {
+			return _Utils_update(
+				position,
+				{allocationPercent: position.allocationPercent * weight});
+		};
+		var _v0 = mission.missionPositions;
+		var missionPositions = _v0.a;
+		return A2($elm$core$List$map, weighted, missionPositions);
+	});
 var $author$project$Transactions$recalculate = F4(
 	function (currentPositions, cashPosition, missions, ignoredSymbols) {
 		var ignored = function (item) {
@@ -7425,6 +7455,13 @@ var $author$project$Transactions$recalculate = F4(
 					return $.currentValue;
 				},
 				A2($elm$core$List$filter, notIgnored, currentPositions)));
+		var valueOfIgnoredPositions = $elm$core$List$sum(
+			A2(
+				$elm$core$List$map,
+				function ($) {
+					return $.currentValue;
+				},
+				A2($elm$core$List$filter, ignored, currentPositions)));
 		var valueOfAllPositions = $elm$core$List$sum(
 			A2(
 				$elm$core$List$map,
@@ -7432,21 +7469,6 @@ var $author$project$Transactions$recalculate = F4(
 					return $.currentValue;
 				},
 				currentPositions));
-		var transactionsForIgnored = A2(
-			$elm$core$List$map,
-			function (p) {
-				return {description: p.description, endAmount: 0.0, endShares: 0, optimalAmount: 0.0, price: p.currentPrice, startAmount: 0.0, startShares: 0, symbol: p.symbol};
-			},
-			A2(
-				$elm$core$List$filter,
-				ignored,
-				$elm$core$List$concat(
-					A2(
-						$elm$core$List$map,
-						function ($) {
-							return $.missionPositions;
-						},
-						missions))));
 		var transactionsForCurrent = A3(
 			$author$project$Utils$listMerge,
 			function ($) {
@@ -7464,20 +7486,11 @@ var $author$project$Transactions$recalculate = F4(
 					return {description: p.description, endAmount: 0.0, endShares: 0, optimalAmount: 0.0, price: p.lastPrice, startAmount: p.currentValue, startShares: p.quantity, symbol: p.symbol};
 				},
 				currentPositions));
-		var transactionsForCurrentPlusIgnored = A3(
-			$author$project$Utils$listMerge,
-			function ($) {
-				return $.symbol;
-			},
-			F2(
-				function (current, _v6) {
-					return current;
-				}),
-			$elm$core$List$concat(
-				_List_fromArray(
-					[transactionsForCurrent, transactionsForIgnored])));
 		var totalValueNotIgnored = cashPosition.startCash + valueOfNonIgnoredPositions;
 		var totalValue = cashPosition.startCash + valueOfAllPositions;
+		var oldCash = cashPosition;
+		var defaultWeight = $author$project$Transactions$weightPerUnweightedMission(missions);
+		var missionPositions = $author$project$Missions$weightedPositions(defaultWeight);
 		var totalAllocationPercentIncludingIgnored = $elm$core$List$sum(
 			A2(
 				$elm$core$List$map,
@@ -7485,13 +7498,7 @@ var $author$project$Transactions$recalculate = F4(
 					return $.allocationPercent;
 				},
 				$elm$core$List$concat(
-					A2(
-						$elm$core$List$map,
-						function ($) {
-							return $.missionPositions;
-						},
-						missions))));
-		var oldCash = cashPosition;
+					A2($elm$core$List$map, missionPositions, missions))));
 		var desiredEndCash = function () {
 			if (cashPosition.matchFool) {
 				if ($elm$core$List$isEmpty(missions)) {
@@ -7505,6 +7512,28 @@ var $author$project$Transactions$recalculate = F4(
 			}
 		}();
 		var totalValueForTrades = totalValueNotIgnored - desiredEndCash;
+		var transactionsForIgnored = A2(
+			$elm$core$List$map,
+			function (p) {
+				return {description: p.description, endAmount: 0.0, endShares: 0, optimalAmount: 0.0, price: p.currentPrice, startAmount: 0.0, startShares: 0, symbol: p.symbol};
+			},
+			A2(
+				$elm$core$List$filter,
+				ignored,
+				$elm$core$List$concat(
+					A2($elm$core$List$map, missionPositions, missions))));
+		var transactionsForCurrentPlusIgnored = A3(
+			$author$project$Utils$listMerge,
+			function ($) {
+				return $.symbol;
+			},
+			F2(
+				function (current, _v6) {
+					return current;
+				}),
+			$elm$core$List$concat(
+				_List_fromArray(
+					[transactionsForCurrent, transactionsForIgnored])));
 		var allNonIgnoredMissionPositions = A3(
 			$author$project$Utils$listMerge,
 			function ($) {
@@ -7520,12 +7549,7 @@ var $author$project$Transactions$recalculate = F4(
 				$elm$core$List$filter,
 				notIgnored,
 				$elm$core$List$concat(
-					A2(
-						$elm$core$List$map,
-						function ($) {
-							return $.missionPositions;
-						},
-						missions))));
+					A2($elm$core$List$map, missionPositions, missions))));
 		var totalAllocationPercent = $elm$core$List$sum(
 			A2(
 				$elm$core$List$map,
@@ -7679,7 +7703,7 @@ var $author$project$Transactions$recalculate = F4(
 		var newCash = _Utils_update(
 			oldCash,
 			{actualEndCash: cashRemaining, desiredEndCash: desiredEndCash});
-		return {cashPosition: newCash, totalValue: totalValue, totalValueForTrades: totalValueForTrades, transactions: completeTransactions};
+		return {cashPosition: newCash, totalValue: totalValue, totalValueForTrades: totalValueForTrades, totalValueIgnored: valueOfIgnoredPositions, transactions: completeTransactions};
 	});
 var $author$project$Main$recalculate = function (_v0) {
 	var model = _v0.a;
@@ -7688,7 +7712,7 @@ var $author$project$Main$recalculate = function (_v0) {
 	return _Utils_Tuple2(
 		_Utils_update(
 			model,
-			{cash: result.cashPosition, totalValue: result.totalValue, totalValueForTrades: result.totalValueForTrades, transactions: result.transactions}),
+			{cash: result.cashPosition, totalValue: result.totalValue, totalValueForTrades: result.totalValueForTrades, totalValueIgnored: result.totalValueIgnored, transactions: result.transactions}),
 		msg);
 };
 var $author$project$CurrentPositions$revertPendingEndCash = function (cp) {
@@ -7753,6 +7777,33 @@ var $author$project$CurrentPositions$setPendingEndCash = F3(
 							$elm$core$Basics$max,
 							0,
 							A2($elm$core$Basics$min, maximum, v)))
+				});
+		}
+	});
+var $author$project$Missions$setUseDefaultWeight = F3(
+	function (_default, useDefault, mission) {
+		return _Utils_update(
+			mission,
+			{
+				weight: useDefault ? $elm$core$Maybe$Nothing : $elm$core$Maybe$Just(_default)
+			});
+	});
+var $author$project$Missions$setWeight = F2(
+	function (value, mission) {
+		var _v0 = $elm$core$String$toFloat(
+			A3(
+				$elm$core$String$replace,
+				',',
+				'',
+				A3($elm$core$String$replace, '$', '', value)));
+		if (_v0.$ === 'Nothing') {
+			return mission;
+		} else {
+			var v = _v0.a;
+			return _Utils_update(
+				mission,
+				{
+					weight: $elm$core$Maybe$Just(v)
 				});
 		}
 	});
@@ -8814,6 +8865,16 @@ var $pablen$toasty$Toasty$update = F4(
 						$elm$core$Process$sleep(cfg.transitionOutDuration)));
 		}
 	});
+var $author$project$Utils$updateListItem = F3(
+	function (idx, list, func) {
+		return A2(
+			$elm$core$List$indexedMap,
+			F2(
+				function (i, x) {
+					return _Utils_eq(i, idx) ? func(x) : x;
+				}),
+			list);
+	});
 var $author$project$Main$update = F2(
 	function (msg, model) {
 		switch (msg.$) {
@@ -8932,6 +8993,39 @@ var $author$project$Main$update = F2(
 							model,
 							{
 								cash: $author$project$CurrentPositions$revertPendingEndCash(model.cash)
+							}),
+						$elm$core$Platform$Cmd$none));
+			case 'SwitchUseDefaultWeightMsg':
+				var idx = msg.a;
+				var enable = msg.b;
+				return $author$project$Main$recalculate(
+					_Utils_Tuple2(
+						_Utils_update(
+							model,
+							{
+								missions: A3(
+									$author$project$Utils$updateListItem,
+									idx,
+									model.missions,
+									A2(
+										$author$project$Missions$setUseDefaultWeight,
+										$author$project$Transactions$weightPerUnweightedMission(model.missions),
+										enable))
+							}),
+						$elm$core$Platform$Cmd$none));
+			case 'UpdateWeightMsg':
+				var idx = msg.a;
+				var value = msg.b;
+				return $author$project$Main$recalculate(
+					_Utils_Tuple2(
+						_Utils_update(
+							model,
+							{
+								missions: A3(
+									$author$project$Utils$updateListItem,
+									idx,
+									model.missions,
+									$author$project$Missions$setWeight(value))
 							}),
 						$elm$core$Platform$Cmd$none));
 			case 'ChangeIgnoreSymbolMsg':
@@ -10670,8 +10764,76 @@ var $rundis$elm_bootstrap$Bootstrap$Tab$items = F2(
 var $author$project$Main$RemoveTargetRequested = function (a) {
 	return {$: 'RemoveTargetRequested', a: a};
 };
-var $author$project$Main$missionTab = F2(
-	function (idx, mission) {
+var $author$project$Missions$unweightedPositions = function (mission) {
+	var _v0 = mission.missionPositions;
+	var missionPositions = _v0.a;
+	return missionPositions;
+};
+var $author$project$Main$SwitchUseDefaultWeightMsg = F2(
+	function (a, b) {
+		return {$: 'SwitchUseDefaultWeightMsg', a: a, b: b};
+	});
+var $author$project$Main$UpdateWeightMsg = F2(
+	function (a, b) {
+		return {$: 'UpdateWeightMsg', a: a, b: b};
+	});
+var $author$project$Utils$isNothing = function (x) {
+	if (x.$ === 'Nothing') {
+		return true;
+	} else {
+		return false;
+	}
+};
+var $author$project$Main$weightInput = F3(
+	function (defaultWeight, idx, mission) {
+		return $elm$core$List$concat(
+			_List_fromArray(
+				[
+					_List_fromArray(
+					[
+						A2(
+						$rundis$elm_bootstrap$Bootstrap$Form$Checkbox$checkbox,
+						_List_fromArray(
+							[
+								$rundis$elm_bootstrap$Bootstrap$Form$Checkbox$id(
+								'useDefaultWeightChk' + $elm$core$String$fromInt(idx)),
+								$rundis$elm_bootstrap$Bootstrap$Form$Checkbox$checked(
+								$author$project$Utils$isNothing(mission.weight)),
+								$rundis$elm_bootstrap$Bootstrap$Form$Checkbox$onCheck(
+								$author$project$Main$SwitchUseDefaultWeightMsg(idx))
+							]),
+						'Use default weight')
+					]),
+					function () {
+					var _v0 = mission.weight;
+					if (_v0.$ === 'Nothing') {
+						return _List_fromArray(
+							[
+								$elm$html$Html$text(
+								$elm$core$String$fromFloat(defaultWeight))
+							]);
+					} else {
+						var weight = _v0.a;
+						return _List_fromArray(
+							[
+								$rundis$elm_bootstrap$Bootstrap$Form$Input$number(
+								_List_fromArray(
+									[
+										$rundis$elm_bootstrap$Bootstrap$Form$Input$id(
+										'defaultWeightInput' + $elm$core$String$fromInt(idx)),
+										$rundis$elm_bootstrap$Bootstrap$Form$Input$small,
+										$rundis$elm_bootstrap$Bootstrap$Form$Input$value(
+										$elm$core$String$fromFloat(weight)),
+										$rundis$elm_bootstrap$Bootstrap$Form$Input$onInput(
+										$author$project$Main$UpdateWeightMsg(idx))
+									]))
+							]);
+					}
+				}()
+				]));
+	});
+var $author$project$Main$missionTab = F3(
+	function (defaultWeight, idx, mission) {
 		return $rundis$elm_bootstrap$Bootstrap$Tab$item(
 			{
 				id: 'tabMission' + $elm$core$String$fromInt(idx),
@@ -10680,13 +10842,21 @@ var $author$project$Main$missionTab = F2(
 					_List_Nil,
 					_List_fromArray(
 						[
-							$elm$html$Html$text(mission.name)
+							$elm$html$Html$text(
+							mission.name + (' (' + (A2(
+								$ggb$numeral_elm$Numeral$format,
+								'0%',
+								A2($elm$core$Maybe$withDefault, defaultWeight, mission.weight) / 100) + ')')))
 						])),
 				pane: A2(
 					$rundis$elm_bootstrap$Bootstrap$Tab$pane,
 					_List_Nil,
 					_List_fromArray(
 						[
+							A2(
+							$elm$html$Html$div,
+							_List_Nil,
+							A3($author$project$Main$weightInput, defaultWeight, idx, mission)),
 							$rundis$elm_bootstrap$Bootstrap$Table$simpleTable(
 							_Utils_Tuple2(
 								$rundis$elm_bootstrap$Bootstrap$Table$simpleThead(
@@ -10768,7 +10938,7 @@ var $author$project$Main$missionTab = F2(
 															]))
 													]));
 										},
-										mission.missionPositions)))),
+										$author$project$Missions$unweightedPositions(mission))))),
 							A2(
 							$rundis$elm_bootstrap$Bootstrap$Button$button,
 							_List_fromArray(
@@ -11593,6 +11763,14 @@ var $author$project$Main$view = function (model) {
 					_List_fromArray(
 						[
 							$elm$html$Html$text(
+							'Total reserved stock value (i.e. owned and ignored): ' + A2($ggb$numeral_elm$Numeral$format, '$0,0.00', model.totalValueIgnored))
+						])),
+					A2(
+					$elm$html$Html$div,
+					_List_Nil,
+					_List_fromArray(
+						[
+							$elm$html$Html$text(
 							'Total value for trade (i.e. not ignored or reserved as cash): ' + A2($ggb$numeral_elm$Numeral$format, '$0,0.00', model.totalValueForTrades))
 						])),
 					$rundis$elm_bootstrap$Bootstrap$Table$simpleTable(
@@ -11718,7 +11896,11 @@ var $author$project$Main$view = function (model) {
 											A2($author$project$Main$transactionsTab, model.ignoredSymbols, model.transactions),
 											$author$project$Main$currentPositionsTab(model.currentPositions)
 										]),
-										A2($elm$core$List$indexedMap, $author$project$Main$missionTab, model.missions)
+										A2(
+										$elm$core$List$indexedMap,
+										$author$project$Main$missionTab(
+											$author$project$Transactions$weightPerUnweightedMission(model.missions)),
+										model.missions)
 									])),
 							_List_fromArray(
 								[$author$project$Main$addTargetTab])),

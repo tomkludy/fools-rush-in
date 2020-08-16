@@ -1,4 +1,4 @@
-module Utils exposing (columnIdx, column, columnInt, columnFloat, listMerge, dec2, toCsvField)
+module Utils exposing (columnIdx, column, columnInt, columnFloat, listMerge, dec2, toCsvField, isNothing, updateListItem)
 
 import List.Extra as L
 import Dict
@@ -53,3 +53,16 @@ toCsvField s =
         quoted = String.replace "\"" "\"\"" s
     in
     if mustQuote then "\"" ++ quoted ++ "\"" else s
+
+isNothing : Maybe a -> Bool
+isNothing x = case x of
+    Nothing -> True
+    _ -> False
+
+updateListItem : Int -> List a -> (a -> a) -> List a
+updateListItem idx list func =
+    List.indexedMap (\i x ->
+        if i == idx
+        then func x
+        else x
+    ) list
