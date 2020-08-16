@@ -73,10 +73,10 @@ recalculate currentPositions cashPosition missions ignoredSymbols =
                 |> List.sum
 
         totalValue =
-            cashPosition.startCash + valueOfAllPositions
+            cashPosition.startCash + cashPosition.addCash + valueOfAllPositions
 
         totalValueNotIgnored =
-            cashPosition.startCash + valueOfNonIgnoredPositions
+            cashPosition.startCash + cashPosition.addCash  + valueOfNonIgnoredPositions
         
         totalWeight = missions |> List.map (\m -> Maybe.withDefault m.defaultWeight m.weight) |> List.sum
 
@@ -99,12 +99,12 @@ recalculate currentPositions cashPosition missions ignoredSymbols =
                 |> List.map .allocationPercent
                 |> List.sum
 
-        totalAllocationPercentIncludingIgnored =
-            missions
-                |> List.map missionPositions
-                |> List.concat
-                |> List.map .allocationPercent
-                |> List.sum
+        -- totalAllocationPercentIncludingIgnored =
+        --     missions
+        --         |> List.map missionPositions
+        --         |> List.concat
+        --         |> List.map .allocationPercent
+        --         |> List.sum
 
         scaleFactor =
             if totalAllocationPercent > 0.0 then
@@ -353,10 +353,12 @@ toCsv cash transactions totalValue =
     String.join "\n" <|
         List.map (String.join ",") <|
             [ [ U.toCsvField "Start cash"
+              , U.toCsvField "Add cash"
               , U.toCsvField "End cash"
               , U.toCsvField "End cash %"
               ]
             , [ U.toCsvField <| Numeral.format "$0,0.00" cash.startCash
+              , U.toCsvField <| Numeral.format "$0,0.00" cash.addCash
               , U.toCsvField <| Numeral.format "$0,0.00" cash.actualEndCash
               , U.toCsvField <| Numeral.format "0.0%" <| cash.actualEndCash / totalValue
               ]

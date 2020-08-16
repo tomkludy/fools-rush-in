@@ -5546,6 +5546,17 @@ var $elm$core$Task$perform = F2(
 	});
 var $elm$browser$Browser$element = _Browser_element;
 var $author$project$Port$IgnoredSymbols = {$: 'IgnoredSymbols'};
+var $author$project$FloatInput$FloatField = F2(
+	function (a, b) {
+		return {$: 'FloatField', a: a, b: b};
+	});
+var $elm$core$String$fromFloat = _String_fromNumber;
+var $author$project$FloatInput$fromFloat = function (f) {
+	return A2(
+		$author$project$FloatInput$FloatField,
+		$elm$core$Maybe$Just(f),
+		$elm$core$String$fromFloat(f));
+};
 var $author$project$Port$getLocalStore = _Platform_outgoingPort('getLocalStore', $elm$core$Basics$identity);
 var $elm$json$Json$Encode$object = function (pairs) {
 	return _Json_wrap(
@@ -5574,7 +5585,7 @@ var $author$project$LocalStore$propGetIgnoredSymbols = $elm$json$Json$Encode$obj
 var $author$project$LocalStore$getLocalStore = function (s) {
 	return $author$project$Port$getLocalStore($author$project$LocalStore$propGetIgnoredSymbols);
 };
-var $author$project$CurrentPositions$initCashPosition = {actualEndCash: 0.0, desiredEndCash: 0.0, matchFool: true, pendingEndCash: $elm$core$Maybe$Nothing, startCash: 0.0};
+var $author$project$CurrentPositions$initCashPosition = {actualEndCash: 0.0, addCash: 0.0, desiredEndCash: 0.0, matchFool: true, pendingEndCash: $elm$core$Maybe$Nothing, startCash: 0.0};
 var $author$project$CurrentPositions$initCurrentPositions = _List_Nil;
 var $rundis$elm_bootstrap$Bootstrap$Tab$Showing = {$: 'Showing'};
 var $rundis$elm_bootstrap$Bootstrap$Tab$State = function (a) {
@@ -5611,7 +5622,20 @@ var $pablen$toasty$Toasty$initialState = A2(
 	$elm$random$Random$initialSeed(0));
 var $author$project$Main$init = function (_v0) {
 	return _Utils_Tuple2(
-		{cash: $author$project$CurrentPositions$initCashPosition, currentPositions: $author$project$CurrentPositions$initCurrentPositions, ignoredSymbols: _List_Nil, missions: _List_Nil, tabState: $rundis$elm_bootstrap$Bootstrap$Tab$initialState, toasties: $pablen$toasty$Toasty$initialState, totalValue: 0.0, totalValueForTrades: 0.0, totalValueIgnored: 0.0, transactions: _List_Nil},
+		{
+			addCashInput: $author$project$FloatInput$fromFloat(0.0),
+			cash: $author$project$CurrentPositions$initCashPosition,
+			currentPositions: $author$project$CurrentPositions$initCurrentPositions,
+			endCashInput: $author$project$FloatInput$fromFloat(0.0),
+			ignoredSymbols: _List_Nil,
+			missions: _List_Nil,
+			tabState: $rundis$elm_bootstrap$Bootstrap$Tab$initialState,
+			toasties: $pablen$toasty$Toasty$initialState,
+			totalValue: 0.0,
+			totalValueForTrades: 0.0,
+			totalValueIgnored: 0.0,
+			transactions: _List_Nil
+		},
 		$author$project$LocalStore$getLocalStore($author$project$Port$IgnoredSymbols));
 };
 var $author$project$Main$RecvFromJS = function (a) {
@@ -6250,7 +6274,7 @@ var $elm$core$List$sum = function (numbers) {
 var $author$project$CurrentPositions$parseCash = F2(
 	function (headers, rows) {
 		return function (res) {
-			return {actualEndCash: res, desiredEndCash: res, matchFool: true, pendingEndCash: $elm$core$Maybe$Nothing, startCash: res};
+			return {actualEndCash: res, addCash: 0.0, desiredEndCash: res, matchFool: true, pendingEndCash: $elm$core$Maybe$Nothing, startCash: res};
 		}(
 			$elm$core$List$sum(
 				A2(
@@ -7219,7 +7243,8 @@ var $author$project$Missions$parseMission = function (input) {
 					defaultWeight: portfolioValue,
 					missionPositions: $author$project$Missions$Private(missionPositions),
 					name: name,
-					weight: $elm$core$Maybe$Nothing
+					weight: $elm$core$Maybe$Nothing,
+					weightInput: $author$project$FloatInput$fromFloat(portfolioValue)
 				});
 		},
 		A2(
@@ -7579,18 +7604,10 @@ var $author$project$Transactions$recalculate = F4(
 					return A2($elm$core$Maybe$withDefault, m.defaultWeight, m.weight);
 				},
 				missions));
-		var totalValueNotIgnored = cashPosition.startCash + valueOfNonIgnoredPositions;
-		var totalValue = cashPosition.startCash + valueOfAllPositions;
+		var totalValueNotIgnored = (cashPosition.startCash + cashPosition.addCash) + valueOfNonIgnoredPositions;
+		var totalValue = (cashPosition.startCash + cashPosition.addCash) + valueOfAllPositions;
 		var oldCash = cashPosition;
 		var missionPositions = $author$project$Missions$weightedPositions(totalWeight);
-		var totalAllocationPercentIncludingIgnored = $elm$core$List$sum(
-			A2(
-				$elm$core$List$map,
-				function ($) {
-					return $.allocationPercent;
-				},
-				$elm$core$List$concat(
-					A2($elm$core$List$map, missionPositions, missions))));
 		var transactionsForIgnored = A2(
 			$elm$core$List$map,
 			function (p) {
@@ -7816,6 +7833,12 @@ var $author$project$CurrentPositions$revertPendingEndCash = function (cp) {
 		cp,
 		{pendingEndCash: $elm$core$Maybe$Nothing});
 };
+var $author$project$CurrentPositions$setAddCash = F2(
+	function (value, cp) {
+		return _Utils_update(
+			cp,
+			{addCash: value});
+	});
 var $elm$json$Json$Encode$list = F2(
 	function (func, entries) {
 		return _Json_wrap(
@@ -7851,32 +7874,24 @@ var $author$project$CurrentPositions$setMatchFool = F2(
 	});
 var $author$project$CurrentPositions$setPendingEndCash = F3(
 	function (value, maximum, cp) {
-		var _v0 = $elm$core$String$toFloat(
-			A3(
-				$elm$core$String$replace,
-				',',
-				'',
-				A3($elm$core$String$replace, '$', '', value)));
-		if (_v0.$ === 'Nothing') {
-			return cp;
-		} else {
-			var v = _v0.a;
-			return _Utils_update(
-				cp,
-				{
-					pendingEndCash: $elm$core$Maybe$Just(
-						A2(
-							$elm$core$Basics$max,
-							0,
-							A2($elm$core$Basics$min, maximum, v)))
-				});
-		}
+		return _Utils_update(
+			cp,
+			{
+				pendingEndCash: $elm$core$Maybe$Just(
+					A2(
+						$elm$core$Basics$max,
+						0,
+						A2($elm$core$Basics$min, maximum, value)))
+			});
 	});
 var $author$project$Missions$setUseDefaultWeight = F2(
 	function (useDefault, mission) {
 		return useDefault ? _Utils_update(
 			mission,
-			{weight: $elm$core$Maybe$Nothing}) : _Utils_update(
+			{
+				weight: $elm$core$Maybe$Nothing,
+				weightInput: $author$project$FloatInput$fromFloat(mission.defaultWeight)
+			}) : _Utils_update(
 			mission,
 			{
 				weight: $elm$core$Maybe$Just(mission.defaultWeight)
@@ -7884,17 +7899,11 @@ var $author$project$Missions$setUseDefaultWeight = F2(
 	});
 var $author$project$Missions$setWeight = F2(
 	function (value, mission) {
-		var _v0 = $author$project$Missions$strToFloat(value);
-		if (_v0.$ === 'Nothing') {
-			return mission;
-		} else {
-			var v = _v0.a;
-			return _Utils_update(
-				mission,
-				{
-					weight: $elm$core$Maybe$Just(v)
-				});
-		}
+		return _Utils_update(
+			mission,
+			{
+				weight: $elm$core$Maybe$Just(value)
+			});
 	});
 var $elm$file$File$Download$string = F3(
 	function (name, mime, content) {
@@ -7903,7 +7912,6 @@ var $elm$file$File$Download$string = F3(
 			$elm$core$Basics$never,
 			A3(_File_download, name, mime, content));
 	});
-var $elm$core$String$fromFloat = _String_fromNumber;
 var $ggb$numeral_elm$Numeral$empty = F3(
 	function (lang, format_val, value) {
 		return {
@@ -8824,6 +8832,7 @@ var $author$project$Transactions$toCsv = F3(
 							_List_fromArray(
 							[
 								$author$project$Utils$toCsvField('Start cash'),
+								$author$project$Utils$toCsvField('Add cash'),
 								$author$project$Utils$toCsvField('End cash'),
 								$author$project$Utils$toCsvField('End cash %')
 							]),
@@ -8831,6 +8840,8 @@ var $author$project$Transactions$toCsv = F3(
 							[
 								$author$project$Utils$toCsvField(
 								A2($ggb$numeral_elm$Numeral$format, '$0,0.00', cash.startCash)),
+								$author$project$Utils$toCsvField(
+								A2($ggb$numeral_elm$Numeral$format, '$0,0.00', cash.addCash)),
 								$author$project$Utils$toCsvField(
 								A2($ggb$numeral_elm$Numeral$format, '$0,0.00', cash.actualEndCash)),
 								$author$project$Utils$toCsvField(
@@ -8964,6 +8975,31 @@ var $author$project$Utils$updateListItem = F3(
 				}),
 			list);
 	});
+var $author$project$FloatInput$fromString = function (str) {
+	var f = ((str === '') || (str === '-')) ? $elm$core$Maybe$Just(0.0) : $elm$core$String$toFloat(
+		A3(
+			$elm$core$String$replace,
+			',',
+			'',
+			A3(
+				$elm$core$String$replace,
+				'%',
+				'',
+				A3($elm$core$String$replace, '$', '', str))));
+	return A2($author$project$FloatInput$FloatField, f, str);
+};
+var $author$project$FloatInput$updateModel = F3(
+	function (newString, updateInputField, onValidInput) {
+		var field = $author$project$FloatInput$fromString(newString);
+		var updated = updateInputField(field);
+		if (field.a.$ === 'Nothing') {
+			var _v1 = field.a;
+			return updated;
+		} else {
+			var f = field.a.a;
+			return A2(onValidInput, f, updated);
+		}
+	});
 var $author$project$Main$update = F2(
 	function (msg, model) {
 		switch (msg.$) {
@@ -8996,9 +9032,16 @@ var $author$project$Main$update = F2(
 					var positions = _v1.a;
 					return $author$project$Main$recalculate(
 						_Utils_Tuple2(
-							_Utils_update(
-								model,
-								{cash: positions.b, currentPositions: positions.a}),
+							function () {
+								var cash = positions.b;
+								return _Utils_update(
+									model,
+									{
+										cash: positions.b,
+										currentPositions: positions.a,
+										endCashInput: $author$project$FloatInput$fromFloat(cash.desiredEndCash)
+									});
+							}(),
 							$elm$core$Platform$Cmd$none));
 				}
 			case 'TabMsg':
@@ -9060,11 +9103,43 @@ var $author$project$Main$update = F2(
 				var value = msg.a;
 				return $author$project$Main$recalculate(
 					_Utils_Tuple2(
-						_Utils_update(
-							model,
-							{
-								cash: A3($author$project$CurrentPositions$setPendingEndCash, value, model.totalValueForTrades, model.cash)
-							}),
+						A3(
+							$author$project$FloatInput$updateModel,
+							value,
+							function (f) {
+								return _Utils_update(
+									model,
+									{endCashInput: f});
+							},
+							F2(
+								function (f, m) {
+									return _Utils_update(
+										m,
+										{
+											cash: A3($author$project$CurrentPositions$setPendingEndCash, f, model.totalValueForTrades, model.cash)
+										});
+								})),
+						$elm$core$Platform$Cmd$none));
+			case 'UpdateAddCashMsg':
+				var value = msg.a;
+				return $author$project$Main$recalculate(
+					_Utils_Tuple2(
+						A3(
+							$author$project$FloatInput$updateModel,
+							value,
+							function (f) {
+								return _Utils_update(
+									model,
+									{addCashInput: f});
+							},
+							F2(
+								function (f, m) {
+									return _Utils_update(
+										m,
+										{
+											cash: A2($author$project$CurrentPositions$setAddCash, f, model.cash)
+										});
+								})),
 						$elm$core$Platform$Cmd$none));
 			case 'UpdateTargetCashMsg':
 				return $author$project$Main$recalculate(
@@ -9081,7 +9156,8 @@ var $author$project$Main$update = F2(
 						_Utils_update(
 							model,
 							{
-								cash: $author$project$CurrentPositions$revertPendingEndCash(model.cash)
+								cash: $author$project$CurrentPositions$revertPendingEndCash(model.cash),
+								endCashInput: $author$project$FloatInput$fromFloat(model.cash.desiredEndCash)
 							}),
 						$elm$core$Platform$Cmd$none));
 			case 'SwitchUseDefaultWeightMsg':
@@ -9111,7 +9187,17 @@ var $author$project$Main$update = F2(
 									$author$project$Utils$updateListItem,
 									idx,
 									model.missions,
-									$author$project$Missions$setWeight(value))
+									function (mission) {
+										return A3(
+											$author$project$FloatInput$updateModel,
+											value,
+											function (f) {
+												return _Utils_update(
+													mission,
+													{weightInput: f});
+											},
+											$author$project$Missions$setWeight);
+									})
 							}),
 						$elm$core$Platform$Cmd$none));
 			case 'ChangeIgnoreSymbolMsg':
@@ -9162,6 +9248,9 @@ var $author$project$Main$update = F2(
 		}
 	});
 var $author$project$Main$CurrentPositionsRequested = {$: 'CurrentPositionsRequested'};
+var $author$project$Main$UpdateAddCashMsg = function (a) {
+	return {$: 'UpdateAddCashMsg', a: a};
+};
 var $author$project$Main$AddTargetInputMsg = function (a) {
 	return {$: 'AddTargetInputMsg', a: a};
 };
@@ -9813,11 +9902,23 @@ var $rundis$elm_bootstrap$Bootstrap$Form$Checkbox$checked = function (isCheck) {
 	return $rundis$elm_bootstrap$Bootstrap$Form$Checkbox$Value(
 		isCheck ? $rundis$elm_bootstrap$Bootstrap$Form$Checkbox$On : $rundis$elm_bootstrap$Bootstrap$Form$Checkbox$Off);
 };
-var $rundis$elm_bootstrap$Bootstrap$Form$Checkbox$Id = function (a) {
-	return {$: 'Id', a: a};
+var $rundis$elm_bootstrap$Bootstrap$Form$Input$Attrs = function (a) {
+	return {$: 'Attrs', a: a};
 };
-var $rundis$elm_bootstrap$Bootstrap$Form$Checkbox$id = function (theId) {
-	return $rundis$elm_bootstrap$Bootstrap$Form$Checkbox$Id(theId);
+var $rundis$elm_bootstrap$Bootstrap$Form$Input$attrs = function (attrs_) {
+	return $rundis$elm_bootstrap$Bootstrap$Form$Input$Attrs(attrs_);
+};
+var $author$project$FloatInput$floatFieldValidationStyle = function (floatField) {
+	if (floatField.a.$ === 'Nothing') {
+		var _v1 = floatField.a;
+		var str = floatField.b;
+		return (str === '') ? _List_Nil : _List_fromArray(
+			[
+				A2($elm$html$Html$Attributes$style, 'background-color', 'red')
+			]);
+	} else {
+		return _List_Nil;
+	}
 };
 var $rundis$elm_bootstrap$Bootstrap$Form$Input$Id = function (a) {
 	return {$: 'Id', a: a};
@@ -9825,7 +9926,22 @@ var $rundis$elm_bootstrap$Bootstrap$Form$Input$Id = function (a) {
 var $rundis$elm_bootstrap$Bootstrap$Form$Input$id = function (id_) {
 	return $rundis$elm_bootstrap$Bootstrap$Form$Input$Id(id_);
 };
-var $rundis$elm_bootstrap$Bootstrap$Form$Input$Number = {$: 'Number'};
+var $rundis$elm_bootstrap$Bootstrap$Form$Input$OnInput = function (a) {
+	return {$: 'OnInput', a: a};
+};
+var $rundis$elm_bootstrap$Bootstrap$Form$Input$onInput = function (toMsg) {
+	return $rundis$elm_bootstrap$Bootstrap$Form$Input$OnInput(toMsg);
+};
+var $rundis$elm_bootstrap$Bootstrap$General$Internal$SM = {$: 'SM'};
+var $rundis$elm_bootstrap$Bootstrap$Form$Input$Size = function (a) {
+	return {$: 'Size', a: a};
+};
+var $rundis$elm_bootstrap$Bootstrap$Form$Input$small = $rundis$elm_bootstrap$Bootstrap$Form$Input$Size($rundis$elm_bootstrap$Bootstrap$General$Internal$SM);
+var $author$project$FloatInput$stringValue = function (_v0) {
+	var s = _v0.b;
+	return s;
+};
+var $rundis$elm_bootstrap$Bootstrap$Form$Input$Text = {$: 'Text'};
 var $rundis$elm_bootstrap$Bootstrap$Form$Input$Input = function (a) {
 	return {$: 'Input', a: a};
 };
@@ -9911,7 +10027,6 @@ var $rundis$elm_bootstrap$Bootstrap$Form$Input$applyModifier = F2(
 					});
 		}
 	});
-var $rundis$elm_bootstrap$Bootstrap$Form$Input$Text = {$: 'Text'};
 var $rundis$elm_bootstrap$Bootstrap$Form$Input$defaultOptions = {attributes: _List_Nil, disabled: false, id: $elm$core$Maybe$Nothing, onInput: $elm$core$Maybe$Nothing, placeholder: $elm$core$Maybe$Nothing, readonly: false, size: $elm$core$Maybe$Nothing, tipe: $rundis$elm_bootstrap$Bootstrap$Form$Input$Text, validation: $elm$core$Maybe$Nothing, value: $elm$core$Maybe$Nothing};
 var $elm$html$Html$Attributes$placeholder = $elm$html$Html$Attributes$stringProperty('placeholder');
 var $elm$html$Html$Attributes$readonly = $elm$html$Html$Attributes$boolProperty('readOnly');
@@ -9997,7 +10112,33 @@ var $rundis$elm_bootstrap$Bootstrap$Form$Input$input = F2(
 		return $rundis$elm_bootstrap$Bootstrap$Form$Input$view(
 			A2($rundis$elm_bootstrap$Bootstrap$Form$Input$create, tipe, options));
 	});
-var $rundis$elm_bootstrap$Bootstrap$Form$Input$number = $rundis$elm_bootstrap$Bootstrap$Form$Input$input($rundis$elm_bootstrap$Bootstrap$Form$Input$Number);
+var $rundis$elm_bootstrap$Bootstrap$Form$Input$text = $rundis$elm_bootstrap$Bootstrap$Form$Input$input($rundis$elm_bootstrap$Bootstrap$Form$Input$Text);
+var $rundis$elm_bootstrap$Bootstrap$Form$Input$Value = function (a) {
+	return {$: 'Value', a: a};
+};
+var $rundis$elm_bootstrap$Bootstrap$Form$Input$value = function (value_) {
+	return $rundis$elm_bootstrap$Bootstrap$Form$Input$Value(value_);
+};
+var $author$project$FloatInput$floatInput = F3(
+	function (id, field, msg) {
+		return $rundis$elm_bootstrap$Bootstrap$Form$Input$text(
+			_List_fromArray(
+				[
+					$rundis$elm_bootstrap$Bootstrap$Form$Input$id(id),
+					$rundis$elm_bootstrap$Bootstrap$Form$Input$small,
+					$rundis$elm_bootstrap$Bootstrap$Form$Input$attrs(
+					$author$project$FloatInput$floatFieldValidationStyle(field)),
+					$rundis$elm_bootstrap$Bootstrap$Form$Input$value(
+					$author$project$FloatInput$stringValue(field)),
+					$rundis$elm_bootstrap$Bootstrap$Form$Input$onInput(msg)
+				]));
+	});
+var $rundis$elm_bootstrap$Bootstrap$Form$Checkbox$Id = function (a) {
+	return {$: 'Id', a: a};
+};
+var $rundis$elm_bootstrap$Bootstrap$Form$Checkbox$id = function (theId) {
+	return $rundis$elm_bootstrap$Bootstrap$Form$Checkbox$Id(theId);
+};
 var $rundis$elm_bootstrap$Bootstrap$Form$Checkbox$OnChecked = function (a) {
 	return {$: 'OnChecked', a: a};
 };
@@ -10031,12 +10172,6 @@ var $rundis$elm_bootstrap$Bootstrap$Button$onClick = function (message) {
 					_Utils_Tuple2(message, true)))
 			]));
 };
-var $rundis$elm_bootstrap$Bootstrap$Form$Input$OnInput = function (a) {
-	return {$: 'OnInput', a: a};
-};
-var $rundis$elm_bootstrap$Bootstrap$Form$Input$onInput = function (toMsg) {
-	return $rundis$elm_bootstrap$Bootstrap$Form$Input$OnInput(toMsg);
-};
 var $rundis$elm_bootstrap$Bootstrap$Internal$Button$Coloring = function (a) {
 	return {$: 'Coloring', a: a};
 };
@@ -10046,18 +10181,8 @@ var $rundis$elm_bootstrap$Bootstrap$Internal$Button$Roled = function (a) {
 };
 var $rundis$elm_bootstrap$Bootstrap$Button$primary = $rundis$elm_bootstrap$Bootstrap$Internal$Button$Coloring(
 	$rundis$elm_bootstrap$Bootstrap$Internal$Button$Roled($rundis$elm_bootstrap$Bootstrap$Internal$Button$Primary));
-var $rundis$elm_bootstrap$Bootstrap$General$Internal$SM = {$: 'SM'};
-var $rundis$elm_bootstrap$Bootstrap$Form$Input$Size = function (a) {
-	return {$: 'Size', a: a};
-};
-var $rundis$elm_bootstrap$Bootstrap$Form$Input$small = $rundis$elm_bootstrap$Bootstrap$Form$Input$Size($rundis$elm_bootstrap$Bootstrap$General$Internal$SM);
-var $rundis$elm_bootstrap$Bootstrap$Form$Input$Value = function (a) {
-	return {$: 'Value', a: a};
-};
-var $rundis$elm_bootstrap$Bootstrap$Form$Input$value = function (value_) {
-	return $rundis$elm_bootstrap$Bootstrap$Form$Input$Value(value_);
-};
-var $author$project$Main$cashInput = function (c) {
+var $author$project$Main$cashInput = function (model) {
+	var c = model.cash;
 	return $elm$core$List$concat(
 		_List_fromArray(
 			[
@@ -10085,29 +10210,12 @@ var $author$project$Main$cashInput = function (c) {
 					if (_v0.$ === 'Nothing') {
 						return _List_fromArray(
 							[
-								$rundis$elm_bootstrap$Bootstrap$Form$Input$number(
-								_List_fromArray(
-									[
-										$rundis$elm_bootstrap$Bootstrap$Form$Input$id('targetCashInput'),
-										$rundis$elm_bootstrap$Bootstrap$Form$Input$small,
-										$rundis$elm_bootstrap$Bootstrap$Form$Input$value(
-										$elm$core$String$fromFloat(c.desiredEndCash)),
-										$rundis$elm_bootstrap$Bootstrap$Form$Input$onInput($author$project$Main$UpdatePendingTargetCashMsg)
-									]))
+								A3($author$project$FloatInput$floatInput, 'targetCashInput', model.endCashInput, $author$project$Main$UpdatePendingTargetCashMsg)
 							]);
 					} else {
 						return _List_fromArray(
 							[
-								$rundis$elm_bootstrap$Bootstrap$Form$Input$number(
-								_List_fromArray(
-									[
-										$rundis$elm_bootstrap$Bootstrap$Form$Input$id('targetCashInput'),
-										$rundis$elm_bootstrap$Bootstrap$Form$Input$small,
-										$rundis$elm_bootstrap$Bootstrap$Form$Input$value(
-										$elm$core$String$fromFloat(
-											A2($elm$core$Maybe$withDefault, 0.0, c.pendingEndCash))),
-										$rundis$elm_bootstrap$Bootstrap$Form$Input$onInput($author$project$Main$UpdatePendingTargetCashMsg)
-									])),
+								A3($author$project$FloatInput$floatInput, 'targetCashInput', model.endCashInput, $author$project$Main$UpdatePendingTargetCashMsg),
 								A2(
 								$rundis$elm_bootstrap$Bootstrap$Button$button,
 								_List_fromArray(
@@ -10902,18 +11010,11 @@ var $author$project$Main$weightInput = F2(
 					return $elm$html$Html$text(
 						'Fool allocation: ' + $elm$core$String$fromFloat(mission.defaultWeight));
 				} else {
-					var weight = _v0.a;
-					return $rundis$elm_bootstrap$Bootstrap$Form$Input$number(
-						_List_fromArray(
-							[
-								$rundis$elm_bootstrap$Bootstrap$Form$Input$id(
-								'defaultWeightInput' + $elm$core$String$fromInt(idx)),
-								$rundis$elm_bootstrap$Bootstrap$Form$Input$small,
-								$rundis$elm_bootstrap$Bootstrap$Form$Input$value(
-								$elm$core$String$fromFloat(weight)),
-								$rundis$elm_bootstrap$Bootstrap$Form$Input$onInput(
-								$author$project$Main$UpdateWeightMsg(idx))
-							]));
+					return A3(
+						$author$project$FloatInput$floatInput,
+						'defaultWeightInput' + $elm$core$String$fromInt(idx),
+						mission.weightInput,
+						$author$project$Main$UpdateWeightMsg(idx));
 				}
 			}()
 			]);
@@ -11943,7 +12044,9 @@ var $author$project$Main$view = function (model) {
 											_List_fromArray(
 												[
 													$elm$html$Html$text(
-													A2($ggb$numeral_elm$Numeral$format, '$0,0.00', model.cash.startCash))
+													A2($ggb$numeral_elm$Numeral$format, '$0,0.00', model.cash.startCash)),
+													$elm$html$Html$text(' Add: '),
+													A3($author$project$FloatInput$floatInput, 'addCashInput', model.addCashInput, $author$project$Main$UpdateAddCashMsg)
 												])),
 										$elm$core$List$isEmpty(model.missions) ? _List_fromArray(
 											[
@@ -11963,7 +12066,7 @@ var $author$project$Main$view = function (model) {
 												A2(
 												$rundis$elm_bootstrap$Bootstrap$Table$td,
 												_List_Nil,
-												$author$project$Main$cashInput(model.cash)),
+												$author$project$Main$cashInput(model)),
 												A2(
 												$rundis$elm_bootstrap$Bootstrap$Table$td,
 												_List_Nil,

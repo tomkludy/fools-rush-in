@@ -25,6 +25,7 @@ import Json.Decode as D
 import Port
 import LocalStore as LS
 import Utils as U
+import FloatInput
 
 -- MAIN
 main : Program () Model Msg
@@ -49,6 +50,8 @@ type alias Model =
     , totalValue : Float
     , totalValueIgnored : Float
     , totalValueForTrades : Float
+    , addCashInput : FloatInput.FloatField
+    , endCashInput : FloatInput.FloatField
     }
 
 init : () -> (Model, Cmd Msg)
@@ -64,6 +67,8 @@ init _ =
         , totalValue = 0.0
         , totalValueIgnored = 0.0
         , totalValueForTrades = 0.0
+        , addCashInput = FloatInput.fromFloat 0.0
+        , endCashInput = FloatInput.fromFloat 0.0
         }
     , LS.getLocalStore Port.IgnoredSymbols
     )
@@ -84,6 +89,7 @@ type Msg
     | UpdatePendingTargetCashMsg String
     | UpdateTargetCashMsg
     | RevertTargetCashMsg
+    | UpdateAddCashMsg String
     | SwitchUseDefaultWeightMsg Int Bool
     | UpdateWeightMsg Int String
     | ChangeIgnoreSymbolMsg String Bool
@@ -108,9 +114,11 @@ update msg model =
             case CP.parseCurrentPositions content of
                 Err error -> ( model, Cmd.none ) |> addToastError error
                 Ok positions ->
-                    ( { model
+                    (let cash = Tuple.second positions
+                     in { model
                         | currentPositions = Tuple.first positions
                         , cash = Tuple.second positions
+                        , endCashInput = FloatInput.fromFloat cash.desiredEndCash
                       }
                     , Cmd.none
                     )
@@ -144,7 +152,19 @@ update msg model =
                 |> recalculate
 
         UpdatePendingTargetCashMsg value ->
-            ( { model | cash = CP.setPendingEndCash value model.totalValueForTrades model.cash }, Cmd.none )
+            ( FloatInput.updateModel value
+                (\f -> { model | endCashInput = f })
+                (\f m -> { m | cash = CP.setPendingEndCash f model.totalValueForTrades model.cash })
+            , Cmd.none
+            )
+                |> recalculate
+
+        UpdateAddCashMsg value ->
+            ( FloatInput.updateModel value
+                (\f -> { model | addCashInput = f })
+                (\f m -> { m | cash = CP.setAddCash f model.cash })
+            , Cmd.none
+            )
                 |> recalculate
 
         UpdateTargetCashMsg ->
@@ -152,7 +172,8 @@ update msg model =
                 |> recalculate
 
         RevertTargetCashMsg ->
-            ( { model | cash = CP.revertPendingEndCash model.cash }, Cmd.none )
+            ( { model | cash = CP.revertPendingEndCash model.cash
+                      , endCashInput = FloatInput.fromFloat model.cash.desiredEndCash }, Cmd.none )
                 |> recalculate
         
         SwitchUseDefaultWeightMsg idx enable ->
@@ -163,7 +184,10 @@ update msg model =
 
         UpdateWeightMsg idx value ->
             ( { model | missions = U.updateListItem idx model.missions
-                <| M.setWeight value
+                <|  (\mission -> FloatInput.updateModel value
+                        (\f -> { mission | weightInput = f })
+                        M.setWeight
+                )
               }, Cmd.none )
                 |> recalculate
 
@@ -234,12 +258,18 @@ view model =
                         ]
                     , Table.tbody []
                         [ Table.tr [] <|
-                            Table.td [] [ text <| Numeral.format "$0,0.00" model.cash.startCash ]
-                             :: (if List.isEmpty model.missions
+                            Table.td []
+                            [ text <| Numeral.format "$0,0.00" model.cash.startCash
+                            , text " Add: "
+                            , FloatInput.floatInput
+                                "addCashInput"
+                                model.addCashInput
+                                UpdateAddCashMsg
+                            ] :: (if List.isEmpty model.missions
                                 then
                                     [ Table.td [ Table.cellAttr <| colspan 4 ] [ text "Add a Target mission to get started" ] ]
                                 else
-                                    [ Table.td [] (cashInput model.cash)
+                                    [ Table.td [] (cashInput model)
                                     , Table.td [] [ text <| Numeral.format "0.0%" <| model.cash.desiredEndCash / model.totalValue ]
                                     , Table.td [] [ text <| Numeral.format "$0,0.00" model.cash.actualEndCash ]
                                     , Table.td [] [ text <| Numeral.format "0.0%" <| model.cash.actualEndCash / model.totalValue ]
@@ -266,8 +296,10 @@ calcTotalWeight missions =
         |> List.map (\m -> Maybe.withDefault m.defaultWeight m.weight)
         |> List.sum
 
-cashInput : CP.CashPosition -> List (Html.Html Msg)
-cashInput c =
+cashInput : Model -> List (Html.Html Msg)
+cashInput model =
+    let c = model.cash
+    in
     List.concat 
         [   [ Checkbox.checkbox
                 [ Checkbox.id "useFoolAllocationChk"
@@ -279,20 +311,16 @@ cashInput c =
                 then [ text (Numeral.format "$0,0.00" c.desiredEndCash) ]
                 else case c.pendingEndCash of
                     Nothing ->
-                        [ Input.number
-                            [ Input.id "targetCashInput"
-                            , Input.small
-                            , Input.value (String.fromFloat c.desiredEndCash)
-                            , Input.onInput UpdatePendingTargetCashMsg
-                            ]
+                        [ FloatInput.floatInput
+                            "targetCashInput"
+                            model.endCashInput
+                            UpdatePendingTargetCashMsg
                         ]
                     _ ->
-                        [ Input.number
-                            [ Input.id "targetCashInput"
-                            , Input.small
-                            , Input.value (String.fromFloat (Maybe.withDefault 0.0 c.pendingEndCash))
-                            , Input.onInput UpdatePendingTargetCashMsg
-                            ]
+                        [ FloatInput.floatInput
+                            "targetCashInput"
+                            model.endCashInput
+                            UpdatePendingTargetCashMsg
                         , Button.button [ Button.onClick UpdateTargetCashMsg, Button.primary ] [ text "Update" ]
                         , Button.button [ Button.onClick RevertTargetCashMsg, Button.primary ] [ text "Revert" ]
                         ]
@@ -418,12 +446,10 @@ weightInput idx mission =
         ] "Use default weight"
     , case mission.weight of
         Nothing -> text <| "Fool allocation: " ++ String.fromFloat mission.defaultWeight
-        Just weight -> Input.number
-            [ Input.id ("defaultWeightInput" ++ String.fromInt idx)
-            , Input.small
-            , Input.value (String.fromFloat weight)
-            , Input.onInput (UpdateWeightMsg idx)
-            ]
+        Just _ -> FloatInput.floatInput
+            ("defaultWeightInput" ++ String.fromInt idx)
+            mission.weightInput
+            (UpdateWeightMsg idx)
     ]
 
 addTargetTab : Tab.Item Msg
@@ -493,3 +519,4 @@ recalculate (model, msg) =
         , totalValueIgnored = result.totalValueIgnored
         , totalValueForTrades = result.totalValueForTrades
     }, msg)
+

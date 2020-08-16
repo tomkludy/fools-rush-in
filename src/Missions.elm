@@ -7,6 +7,7 @@ module Missions exposing (
 import List.Extra as L
 import Utils as U
 import Regex
+import FloatInput exposing (FloatField)
 
 
 type alias MissionPosition =
@@ -24,6 +25,7 @@ type alias Mission =
     , missionPositions : Private
     , weight : Maybe Float
     , defaultWeight : Float
+    , weightInput : FloatField
     }
 
 weightedCashReservePercent : Float -> Mission -> Float
@@ -62,14 +64,12 @@ unweightedPositions mission =
 setUseDefaultWeight : Bool -> Mission -> Mission
 setUseDefaultWeight useDefault mission =
     if useDefault
-    then { mission | weight = Nothing }
+    then { mission | weight = Nothing, weightInput = FloatInput.fromFloat mission.defaultWeight }
     else { mission | weight = Just mission.defaultWeight }
 
-setWeight : String -> Mission -> Mission
+setWeight : Float -> Mission -> Mission
 setWeight value mission =
-    case value |> strToFloat of
-        Nothing -> mission
-        Just v -> { mission | weight = Just v }
+    { mission | weight = Just value }
 
 portfolioNameRegex : Regex.Regex
 portfolioNameRegex = 
@@ -148,6 +148,7 @@ parseMission input =
             , missionPositions = Private missionPositions
             , weight = Nothing
             , defaultWeight = portfolioValue
+            , weightInput = FloatInput.fromFloat portfolioValue
             }
         )
 

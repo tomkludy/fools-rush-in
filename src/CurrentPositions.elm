@@ -1,7 +1,7 @@
 module CurrentPositions exposing (
     CurrentPosition, CashPosition,
     initCurrentPositions, initCashPosition, parseCurrentPositions,
-    setMatchFool, setPendingEndCash, commitPendingEndCash, revertPendingEndCash)
+    setMatchFool, setPendingEndCash, commitPendingEndCash, revertPendingEndCash, setAddCash)
 
 import Csv
 import Utils as U
@@ -18,6 +18,7 @@ type alias CurrentPosition =
 
 type alias CashPosition =
     { startCash : Float
+    , addCash : Float
     , desiredEndCash : Float
     , matchFool : Bool
     , pendingEndCash : Maybe Float
@@ -30,6 +31,7 @@ initCurrentPositions = []
 initCashPosition : CashPosition
 initCashPosition =
     { startCash = 0.0
+    , addCash = 0.0
     , desiredEndCash = 0.0
     , matchFool = True
     , pendingEndCash = Nothing
@@ -46,11 +48,13 @@ setMatchFool : Bool -> CashPosition -> CashPosition
 setMatchFool enable cp =
     { cp | matchFool = enable }
 
-setPendingEndCash : String -> Float -> CashPosition -> CashPosition
+setPendingEndCash : Float -> Float -> CashPosition -> CashPosition
 setPendingEndCash value maximum cp =
-    case value |> String.replace "$" "" |> String.replace "," "" |> String.toFloat of
-        Nothing -> cp
-        Just v -> { cp | pendingEndCash = Just <| max 0 (min maximum v) }
+    { cp | pendingEndCash = Just <| max 0 (min maximum value) }
+
+setAddCash : Float -> CashPosition -> CashPosition
+setAddCash value cp =
+    { cp | addCash = value }
 
 commitPendingEndCash : CashPosition -> CashPosition
 commitPendingEndCash cp =
@@ -127,6 +131,7 @@ parseCash headers rows =
         |> List.sum
         |> \res ->
             { startCash = res
+            , addCash = 0.0
             , desiredEndCash = res
             , actualEndCash = res
             , pendingEndCash = Nothing
