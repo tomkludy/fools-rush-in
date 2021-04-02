@@ -8,10 +8,10 @@ import Json.Decode as D
 --     | GetLocalStore LSSaveable
 
 type LSSaveable
-    = IgnoredSymbols
+    = AdjustedSymbols
 
 type LSValueType
-    = IgnoredSymbolValue (List String)
+    = AdjustedSymbolValue (List String)
 
 
 port setLocalStore : E.Value -> Cmd msg

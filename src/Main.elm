@@ -13,7 +13,6 @@ import Bootstrap.Grid as Grid
 import Bootstrap.Button as Button
 import Bootstrap.Tab as Tab
 import Bootstrap.Form.Textarea as Textarea
-import Bootstrap.Form.Input as Input
 import Bootstrap.Form.Checkbox as Checkbox
 import Numeral
 import Toasty
@@ -26,6 +25,8 @@ import Port
 import LocalStore as LS
 import Utils as U
 import FloatInput
+import IntInput
+import Dict exposing (Dict)
 
 -- MAIN
 main : Program () Model Msg
@@ -46,9 +47,9 @@ type alias Model =
     , transactions : List T.Transaction
     , tabState : Tab.State
     , toasties : Toasty.Stack Toasty.Defaults.Toast
-    , ignoredSymbols : List String
+    , adjustedSymbols : Dict String IntInput.IntField
     , totalValue : Float
-    , totalValueIgnored : Float
+    , totalValueAdjusted : Float
     , totalValueForTrades : Float
     , addCashInput : FloatInput.FloatField
     , endCashInput : FloatInput.FloatField
@@ -63,14 +64,14 @@ init _ =
         , transactions = []
         , tabState = Tab.initialState
         , toasties = Toasty.initialState
-        , ignoredSymbols = []
+        , adjustedSymbols = Dict.empty
         , totalValue = 0.0
-        , totalValueIgnored = 0.0
+        , totalValueAdjusted = 0.0
         , totalValueForTrades = 0.0
         , addCashInput = FloatInput.fromFloat 0.0
         , endCashInput = FloatInput.fromFloat 0.0
         }
-    , LS.getLocalStore Port.IgnoredSymbols
+    , LS.getLocalStore Port.AdjustedSymbols
     )
 
 
@@ -92,7 +93,8 @@ type Msg
     | UpdateAddCashMsg String
     | SwitchUseDefaultWeightMsg Int Bool
     | UpdateWeightMsg Int String
-    | ChangeIgnoreSymbolMsg String Bool
+    | UpdateEndSharesMsg String String
+    | ChangeAdjustSymbolMsg String Bool
     -- | SendToJS Port.SendCommand
     | RecvFromJS D.Value
     | DownloadTransactionsMsg
@@ -135,6 +137,7 @@ update msg model =
                 Just mission ->
                     ( { model | missions = M.addMission mission model.missions }, Cmd.none )
                         |> recalculate
+                        |> fixAdjustedSymbols
                         |> addToastSuccess ("Added mission: " ++ mission.name)
         
         ToastyMsg subMsg ->
@@ -191,26 +194,38 @@ update msg model =
               }, Cmd.none )
                 |> recalculate
 
-        ChangeIgnoreSymbolMsg symbol ignore ->
-            let newIgnored =
-                    if ignore
-                        then symbol::model.ignoredSymbols
-                        else List.filter ((/=) symbol) model.ignoredSymbols
+        UpdateEndSharesMsg symbol value ->
+            case Dict.get symbol model.adjustedSymbols of
+                Nothing -> ( model, Cmd.none ) |> addToastError "Trying to update a non-adjusted symbol"
+                Just _ ->
+                    ( { model | adjustedSymbols = IntInput.updateModel
+                        value
+                        (\f -> Dict.insert symbol f model.adjustedSymbols)
+                        (\_ adjustedSymbols -> adjustedSymbols)
+                    }, Cmd.none )
+                        |> recalculate
+
+        ChangeAdjustSymbolMsg symbol adjust ->
+            let newAdjusted =
+                    if adjust
+                        then Dict.insert symbol (getDefaultIntInput symbol model.currentPositions) model.adjustedSymbols
+                        else Dict.remove symbol model.adjustedSymbols
             in
-            ( { model | ignoredSymbols = newIgnored }
-            , LS.setLocalStore <| Port.IgnoredSymbolValue newIgnored
+            ( { model | adjustedSymbols = newAdjusted }
+            , LS.setLocalStore <| Port.AdjustedSymbolValue <| Dict.keys newAdjusted
             )
                 |> recalculate
 
         -- SendToJS cmd  ->
         --     case cmd of
-        --         Port.SetLocalStore _ -> ( model, LS.setLocalStore <| Port.IgnoredSymbolValue model.ignoredSymbols )
-        --         Port.GetLocalStore _ -> ( model, LS.getLocalStore Port.IgnoredSymbols )
+        --         Port.SetLocalStore _ -> ( model, LS.setLocalStore <| Port.AdjustedSymbolValue model.AdjustedSymbols )
+        --         Port.GetLocalStore _ -> ( model, LS.getLocalStore Port.AdjustedSymbols )
         
         RecvFromJS incoming ->
             case LS.propRetrieved incoming of
                 Err error -> ( model, Cmd.none ) |> addToastError error
-                Ok (Just (Port.IgnoredSymbolValue list)) -> ( { model | ignoredSymbols = list }, Cmd.none ) |> recalculate
+                Ok (Just (Port.AdjustedSymbolValue list)) ->
+                    ( { model | adjustedSymbols = Dict.fromList <| List.map (\s -> (s, getDefaultIntInput s model.currentPositions)) list }, Cmd.none ) |> recalculate
                 Ok Nothing -> ( model, Cmd.none )
         
         DownloadTransactionsMsg ->
@@ -218,6 +233,15 @@ update msg model =
             , T.toCsv model.cash model.transactions model.totalValue
                 |> Download.string "transactions.csv" "text/csv"
             )
+
+getDefaultIntInput : String -> List CP.CurrentPosition -> IntInput.IntField
+getDefaultIntInput symbol currentPositions =
+    let defaultEndShares =
+            currentPositions
+                |> List.filterMap (\cp -> if cp.symbol == symbol then Just cp.quantity else Nothing)
+                |> List.sum
+    in
+    IntInput.fromInt defaultEndShares
 
 
 -- VIEW
@@ -246,8 +270,8 @@ view model =
             Grid.container []
                 [ CDN.stylesheet
                 , div [] [ text <| "Total value (cash + stock): " ++ Numeral.format "$0,0.00" model.totalValue ]
-                , div [] [ text <| "Total reserved stock value (i.e. owned and ignored): " ++ Numeral.format "$0,0.00" model.totalValueIgnored ]
-                , div [] [ text <| "Total value for trade (i.e. not ignored or reserved as cash): " ++ Numeral.format "$0,0.00" model.totalValueForTrades ]
+                , div [] [ text <| "Total reserved stock value (i.e. adjusted): " ++ Numeral.format "$0,0.00" model.totalValueAdjusted ]
+                , div [] [ text <| "Total value for trade (i.e. not adjusted or reserved as cash): " ++ Numeral.format "$0,0.00" model.totalValueForTrades ]
                 , Table.simpleTable
                     ( Table.simpleThead
                         [ Table.th [Table.cellPrimary] [ text "Current Cash" ]
@@ -271,7 +295,11 @@ view model =
                                 else
                                     [ Table.td [] (cashInput model)
                                     , Table.td [] [ text <| Numeral.format "0.0%" <| model.cash.desiredEndCash / model.totalValue ]
-                                    , Table.td [] [ text <| Numeral.format "$0,0.00" model.cash.actualEndCash ]
+                                    , Table.td [] [ div (
+                                        if model.cash.actualEndCash < model.cash.desiredEndCash
+                                        then [ Html.Attributes.style "color" "red" ]
+                                        else []
+                                        ) [ text <| Numeral.format "$0,0.00" model.cash.actualEndCash ] ]
                                     , Table.td [] [ text <| Numeral.format "0.0%" <| model.cash.actualEndCash / model.totalValue ]
                                     ]
                             )
@@ -282,7 +310,7 @@ view model =
                     |> Tab.items ((if List.isEmpty model.missions
                             then []
                             else List.concat
-                                [ [transactionsTab model.ignoredSymbols model.transactions, currentPositionsTab model.currentPositions]
+                                [ [transactionsTab model.adjustedSymbols model.transactions, currentPositionsTab model.currentPositions]
                                   , List.indexedMap (missionTab <| calcTotalWeight model.missions) model.missions
                                 ]
                         ) ++ [addTargetTab])
@@ -326,8 +354,8 @@ cashInput model =
                         ]
         ]
 
-transactionsTab : List String -> List T.Transaction -> Tab.Item Msg
-transactionsTab ignoredSymbols cp =
+transactionsTab : Dict String IntInput.IntField -> List T.Transaction -> Tab.Item Msg
+transactionsTab adjustedSymbols cp =
     Tab.item
         { id = "tabTransactions"
         , link = Tab.link [] [ text "Transactions" ]
@@ -335,7 +363,7 @@ transactionsTab ignoredSymbols cp =
             [ Button.button [ Button.onClick DownloadTransactionsMsg, Button.primary ] [ text "Download transactions as .csv file" ]
             , Table.simpleTable
                 ( Table.simpleThead
-                    [ Table.th [Table.cellPrimary] [ text "Ignore" ]
+                    [ Table.th [Table.cellPrimary] [ text "Adjust" ]
                     , Table.th [Table.cellPrimary] [ text "Action" ]
                     , Table.th [Table.cellPrimary] [ text "Symbol" ]
                     , Table.th [Table.cellPrimary] [ text "Description" ]
@@ -353,10 +381,10 @@ transactionsTab ignoredSymbols cp =
                     ]
                 , Table.tbody []
                     (cp |> List.map (\p ->
-                        let isIgnored = List.member p.symbol ignoredSymbols
+                        let isAdjusted = Dict.member p.symbol adjustedSymbols
                         in
                         Table.tr []
-                            [ Table.td [] [ Button.checkboxButton isIgnored [ Button.onClick (ChangeIgnoreSymbolMsg p.symbol (not isIgnored)) ] [] ]
+                            [ Table.td [] [ Button.checkboxButton isAdjusted [ Button.onClick (ChangeAdjustSymbolMsg p.symbol (not isAdjusted)) ] [] ]
                             , Table.td [] [ text <| T.transTypeToString p.transType ]
                             , Table.td [] [ text p.symbol ]
                             , Table.td [] [ text p.description ]
@@ -366,7 +394,10 @@ transactionsTab ignoredSymbols cp =
                             , Table.td [] [ text (String.fromInt p.startShares) ]
                             , Table.td [] [ text (Numeral.format "$0,0.00" p.startAmount) ]
                             , Table.td [] [ text (Numeral.format "0.0%" <| p.startPercent / 100.0) ]
-                            , Table.td [] [ text (String.fromInt p.endShares) ]
+                            , Table.td [] <|
+                                if isAdjusted
+                                then endSharesInput adjustedSymbols p.symbol
+                                else [ text (String.fromInt p.endShares) ]
                             , Table.td [] [ text (Numeral.format "$0,0.00" p.endAmount) ]
                             , Table.td [] [ text (Numeral.format "0.0%" <| p.endPercent / 100.0) ]
                             , Table.td [] [ text (Numeral.format "$0,0.00" p.optimalAmount) ]
@@ -376,6 +407,18 @@ transactionsTab ignoredSymbols cp =
                 )
             ]
         }
+endSharesInput : Dict String IntInput.IntField -> String -> List (Html.Html Msg)
+endSharesInput adjustedSymbols symbol =
+    let input = Dict.get symbol adjustedSymbols
+    in
+    case input of
+        Just inp ->
+            [ IntInput.intInput
+                ("endShares" ++ symbol)
+                inp
+                (UpdateEndSharesMsg symbol)
+            ]
+        Nothing -> [ text "Error getting symbol input" ]
 
 currentPositionsTab : List CP.CurrentPosition -> Tab.Item Msg
 currentPositionsTab cp =
@@ -510,13 +553,19 @@ subscriptions model =
 
 recalculate : (Model, Cmd Msg) -> (Model, Cmd Msg)
 recalculate (model, msg) =
-    let result = T.recalculate model.currentPositions model.cash model.missions model.ignoredSymbols
+    let result = T.recalculate model.currentPositions model.cash model.missions <|
+                    Dict.map (\_ a -> IntInput.intValue a) model.adjustedSymbols
     in
     ({ model
         | transactions = result.transactions
         , cash = result.cashPosition
         , totalValue = result.totalValue
-        , totalValueIgnored = result.totalValueIgnored
+        , totalValueAdjusted = result.totalValueAdjusted
         , totalValueForTrades = result.totalValueForTrades
     }, msg)
 
+fixAdjustedSymbols : (Model, Cmd Msg) -> (Model, Cmd Msg)
+fixAdjustedSymbols (model, msg) =
+    ({ model | adjustedSymbols =
+                Dict.map (\k _ -> getDefaultIntInput k model.currentPositions) model.adjustedSymbols
+    }, msg) |> recalculate
