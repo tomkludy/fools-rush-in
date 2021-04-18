@@ -66,6 +66,29 @@ recalculate currentPositions cashPosition missions adjustedSymbols =
     -- haven't been adjusted, setting aside the cash that should be still
     -- held afterward
     let
+
+    -- type alias CurrentPosition =
+    -- { account : String
+    -- , symbol : String
+    -- , description : String
+    -- , quantity : Int
+    -- , lastPrice : Float
+    -- , currentValue : Float
+    -- }
+        normalizedCurrentPositions =
+            currentPositions
+                |> U.listMerge .symbol
+                    (\a b ->
+                        { account = "(multiple)"
+                        , symbol = a.symbol
+                        , description = a.description ++ " (multiple accounts)"
+                        , quantity = a.quantity + b.quantity
+                        , lastPrice = a.lastPrice
+                        , currentValue = a.currentValue + b.currentValue
+                        }
+                    )
+                --|> Debug.log "normalizedCurrentPositions"
+        
         valueOfAllStartingPositions =
             currentPositions
                 |> List.map .currentValue
@@ -82,7 +105,7 @@ recalculate currentPositions cashPosition missions adjustedSymbols =
         --         --|> Debug.log "valueOfNonAdjustedPositions"
 
         costOfAdjustedPositions =
-            currentPositions
+            normalizedCurrentPositions
                 |> List.filter adjusted
                 |> List.map costOfAdjusted
                 |> List.sum
@@ -144,7 +167,7 @@ recalculate currentPositions cashPosition missions adjustedSymbols =
         -- this will be merged into the list of transactions coming from missions to decide
         -- what not to sell
         transactionsForCurrent =
-            currentPositions
+            normalizedCurrentPositions
                 |> List.map
                     (\p ->
                         { symbol = p.symbol
