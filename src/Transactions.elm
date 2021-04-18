@@ -6,8 +6,7 @@ import Missions as M
 import Numeral
 import Utils as U
 import List
-import List
-
+import Dict exposing (Dict)
 
 type alias Transaction =
     { transType : TransactionType
@@ -28,106 +27,147 @@ type alias Transaction =
 
 
 type TransactionType
-    = Ignore
-    | Sell
+    = Sell
     | Buy
     | Hold
+    | None
 
 
 type alias CalculationResult =
     { transactions : List Transaction
     , cashPosition : CP.CashPosition
     , totalValue : Float
-    , totalValueIgnored : Float
+    , totalValueAdjusted : Float
     , totalValueForTrades : Float
     }
 
 
-recalculate : List CP.CurrentPosition -> CP.CashPosition -> List M.Mission -> List String -> CalculationResult
-recalculate currentPositions cashPosition missions ignoredSymbols =
+recalculate : List CP.CurrentPosition -> CP.CashPosition -> List M.Mission -> Dict String (Maybe Int) -> CalculationResult
+recalculate currentPositions cashPosition missions adjustedSymbols =
     let
-        ignored item =
-            List.member item.symbol ignoredSymbols
+        adjusted item =
+            Dict.member item.symbol adjustedSymbols
 
-        notIgnored item =
-            not (ignored item)
+        notAdjusted item =
+            not (adjusted item)
+        
+        costOfAdjusted p =
+            case Dict.get p.symbol adjustedSymbols of
+                Just (Just num) -> p.lastPrice * toFloat num
+                _ -> p.currentValue
+
+        numOfAdjusted p =
+            case Dict.get p.symbol adjustedSymbols of
+                Just (Just num) -> num
+                _ -> p.quantity
     in
     -- Calculate how much total value is held in Fidelity (stock + cash)
     -- and how much of that should be used to allocated to stocks that
-    -- haven't been ignored, setting aside the cash that should be still
+    -- haven't been adjusted, setting aside the cash that should be still
     -- held afterward
     let
-        valueOfAllPositions = Debug.log "valueOfAllPositions" (
+
+    -- type alias CurrentPosition =
+    -- { account : String
+    -- , symbol : String
+    -- , description : String
+    -- , quantity : Int
+    -- , lastPrice : Float
+    -- , currentValue : Float
+    -- }
+        normalizedCurrentPositions =
             currentPositions
-                |> List.map .currentValue
-                |> List.sum
-                |> U.dec2)
-
-        valueOfNonIgnoredPositions = Debug.log "valueOfNonIgnoredPositions" (
-            currentPositions
-                |> List.filter notIgnored
-                |> List.map .currentValue
-                |> List.sum
-                |> U.dec2)
-
-        valueOfIgnoredPositions = Debug.log "valueOfIgnoredPositions" (
-            currentPositions
-                |> List.filter ignored
-                |> List.map .currentValue
-                |> List.sum
-                |> U.dec2)
-
-        totalValue = Debug.log "totalValue" (
-            U.dec2 <| cashPosition.startCash + cashPosition.addCash + valueOfAllPositions)
-
-        totalValueNotIgnored = Debug.log "totalValueNotIgnored" (
-            U.dec2 <| cashPosition.startCash + cashPosition.addCash  + valueOfNonIgnoredPositions)
+                |> U.listMerge .symbol
+                    (\a b ->
+                        { account = "(multiple)"
+                        , symbol = a.symbol
+                        , description = a.description ++ " (multiple accounts)"
+                        , quantity = a.quantity + b.quantity
+                        , lastPrice = a.lastPrice
+                        , currentValue = a.currentValue + b.currentValue
+                        }
+                    )
+                --|> Debug.log "normalizedCurrentPositions"
         
-        totalWeight = Debug.log "totalWeight" (
-            missions |> List.map (\m -> Maybe.withDefault m.defaultWeight m.weight) |> List.sum)
+        valueOfAllStartingPositions =
+            currentPositions
+                |> List.map .currentValue
+                |> List.sum
+                |> U.dec2
+                --|> Debug.log "valueOfAllStartingPositions"
+
+        -- valueOfNonAdjustedPositions =
+        --     currentPositions
+        --         |> List.filter notAdjusted
+        --         |> List.map .currentValue
+        --         |> List.sum
+        --         |> U.dec2
+        --         --|> Debug.log "valueOfNonAdjustedPositions"
+
+        costOfAdjustedPositions =
+            normalizedCurrentPositions
+                |> List.filter adjusted
+                |> List.map costOfAdjusted
+                |> List.sum
+                |> U.dec2
+                --|> Debug.log "costOfAdjustedPositions"
+
+        totalValue = --Debug.log "totalValue" <|
+            U.dec2 <| cashPosition.startCash + cashPosition.addCash + valueOfAllStartingPositions
+
+        totalValueForTradesAndReserve = --Debug.log "totalValueForTradesAndReserve" <|
+            U.dec2 <| totalValue - costOfAdjustedPositions
+        
+        totalWeight =
+            missions
+                |> List.map (\m -> Maybe.withDefault m.defaultWeight m.weight)
+                |> List.sum
+                --|> Debug.log "totalWeight"
 
         missionPositions = M.weightedPositions totalWeight
 
-        -- Normalize the non-ignored mission positions so that if two
+        -- Normalize the non-adjusted mission positions so that if two
         -- missions have the same stock, that's merged into one target
         -- allocation percent; then, normalize so that all of the target
         -- allocation percents add up to 100%
-        allNonIgnoredMissionPositions = Debug.log "allNonIgnoredMissionPositions" (
+        allNonAdjustedMissionPositions =
             missions
                 |> List.map missionPositions
                 |> List.concat
-                |> List.filter notIgnored
+                |> List.filter notAdjusted
                 |> U.listMerge .symbol
-                    (\mp1 mp2 -> { mp1 | allocationPercent = mp1.allocationPercent + mp2.allocationPercent }))
+                    (\mp1 mp2 -> { mp1 | allocationPercent = mp1.allocationPercent + mp2.allocationPercent })
+                --|> Debug.log "allNonAdjustedMissionPositions"
 
-        totalAllocationPercent = Debug.log "totalAllocationPercent" (
-            allNonIgnoredMissionPositions
+        totalAllocationPercent =
+            allNonAdjustedMissionPositions
                 |> List.map .allocationPercent
-                |> List.sum)
+                |> List.sum
+                --|> Debug.log "totalAllocationPercent"
 
-        -- totalAllocationPercentIncludingIgnored =
+        -- totalAllocationPercentIncludingAdjusted =
         --     missions
         --         |> List.map missionPositions
         --         |> List.concat
         --         |> List.map .allocationPercent
         --         |> List.sum
 
-        scaleFactor = Debug.log "scaleFactor" (
+        scaleFactor = --Debug.log "scaleFactor" <|
             if totalAllocationPercent > 0.0 then
                 100.0 / totalAllocationPercent
-
             else
-                1.0)
+                1.0
 
-        normalizedTargetMissionPositions = Debug.log "normalizedTargetMissionPositions" (
-            allNonIgnoredMissionPositions
-                |> List.map (\item -> { item | allocationPercent = item.allocationPercent * scaleFactor }))
+        normalizedTargetMissionPositions =
+            allNonAdjustedMissionPositions
+                |> List.map (\item -> { item | allocationPercent = item.allocationPercent * scaleFactor })
+                --|> Debug.log "normalizedTargetMissionPositions"
 
         -- Create some "sell everything" transactions representing all current positions,
         -- this will be merged into the list of transactions coming from missions to decide
         -- what not to sell
-        transactionsForCurrent = Debug.log "transactionsForCurrent" (
-            currentPositions
+        transactionsForCurrent =
+            normalizedCurrentPositions
                 |> List.map
                     (\p ->
                         { symbol = p.symbol
@@ -135,9 +175,9 @@ recalculate currentPositions cashPosition missions ignoredSymbols =
                         , price = p.lastPrice
                         , startShares = p.quantity
                         , startAmount = p.currentValue
-                        , optimalAmount = if ignored p then p.currentValue else 0.0
-                        , endShares = if ignored p then p.quantity else 0
-                        , endAmount = if ignored p then p.currentValue else 0.0
+                        , optimalAmount = if adjusted p then costOfAdjusted p else 0.0
+                        , endShares = if adjusted p then numOfAdjusted p else 0
+                        , endAmount = if adjusted p then costOfAdjusted p else 0.0
                         }
                     )
                 |> U.listMerge .symbol
@@ -150,15 +190,16 @@ recalculate currentPositions cashPosition missions ignoredSymbols =
                             , endShares = a.endShares + b.endShares
                             , endAmount = a.endAmount + b.endAmount
                         }
-                    ))
+                    )
+                --|> Debug.log "transactionsForCurrent"
 
-        -- Create some "sell everything" transactions representing every ignored
+        -- Create some "sell everything" transactions representing every adjusted
         -- position coming from any mission
-        transactionsForIgnored = Debug.log "transactionsForIgnored" (
+        transactionsForAdjusted =
             missions
                 |> List.map missionPositions
                 |> List.concat
-                |> List.filter ignored
+                |> List.filter adjusted
                 |> List.map
                     (\p ->
                         { symbol = p.symbol
@@ -170,17 +211,19 @@ recalculate currentPositions cashPosition missions ignoredSymbols =
                         , endShares = 0
                         , endAmount = 0.0
                         }
-                    ))
+                    )
+                --|> Debug.log "transactionsForAdjusted"
 
-        -- Merge current plus ignored; keep the current position over the mission
+        -- Merge current plus adjusted; keep the current position over the mission
         -- position whenever the same transaction appears.
-        transactionsForCurrentPlusIgnored = Debug.log "transactionsForCurrentPlusIgnored" (
-            List.concat [ transactionsForCurrent, transactionsForIgnored ]
-                |> U.listMerge .symbol (\current _ -> current))
+        transactionsForCurrentPlusAdjusted =
+            List.concat [ transactionsForCurrent, transactionsForAdjusted ]
+                |> U.listMerge .symbol (\current _ -> current)
+                --|> Debug.log "transactionsForCurrentPlusAdjusted"
 
         -- Figure out how much cash is available for trading across all of the
-        -- not-ignored mission positions
-        desiredEndCash = Debug.log "desiredEndCash" (
+        -- not-adjusted mission positions
+        desiredEndCash = --Debug.log "desiredEndCash" <|
             if cashPosition.matchFool then
                 -- Figure out the average cash reserve percentage across
                 -- the followed missions and apply it to the total value
@@ -192,18 +235,18 @@ recalculate currentPositions cashPosition missions ignoredSymbols =
                         foolCashAllocation = missions
                             |> List.map (M.weightedCashReservePercent totalWeight)
                             |> List.sum
-                            -- 100.0 - (totalAllocationPercentIncludingIgnored / toFloat (List.length missions))
+                            -- 100.0 - (totalAllocationPercentIncludingAdjusted / toFloat (List.length missions))
                     in
                     U.dec2 <| totalValue * foolCashAllocation
 
             else
-                cashPosition.desiredEndCash)
+                cashPosition.desiredEndCash
 
-        totalValueForTrades = Debug.log "totalValueForTrades" (
-            U.dec2 <| totalValueNotIgnored - desiredEndCash)
+        totalValueForTrades = --Debug.log "totalValueForTrades" <|
+            U.dec2 <| max 0.0 (totalValueForTradesAndReserve - desiredEndCash)
 
         -- Create transactions representing the target mission positions
-        transactionsForMissions = Debug.log "transactionsForMissions" (
+        transactionsForMissions =
             normalizedTargetMissionPositions
                 |> List.map
                     (\p ->
@@ -223,61 +266,64 @@ recalculate currentPositions cashPosition missions ignoredSymbols =
                         , endShares = endShares
                         , endAmount = U.dec2 <| toFloat endShares * p.currentPrice
                         }
-                    ))
+                    )
+                --|> Debug.log "transactionsForMissions"
 
         -- Merge all of the transactions together; whenever there is a current position
         -- and a matching desired mission position, use the mission position as the
         -- transaction target, but remember the starting shares and amount
-        transactionsForAll = Debug.log "transactionsForAll" (
-            List.concat [ transactionsForCurrentPlusIgnored, transactionsForMissions ]
+        transactionsForAll =
+            List.concat [ transactionsForCurrentPlusAdjusted, transactionsForMissions ]
                 |> U.listMerge .symbol
                     (\current mission ->
                         { mission
                             | startShares = current.startShares
                             , startAmount = current.startAmount
                         }
-                    ))
+                    )
+                --|> Debug.log "transactionsForAll"
 
         -- Due to rounding errors we may end up trying to spend more than we have.
         -- Adjust transactions as necessary until our end cash is >= the desired
         -- end cash.
-        overage = Debug.log "overage" (
+        overage = 
             (transactionsForAll
-                |> List.filterMap (\t -> if ignored t then Nothing else Just t.endAmount)
+                |> List.filterMap (\t -> if adjusted t then Nothing else Just t.endAmount)
                 |> List.sum
                 |> U.dec2
-            ) - totalValueForTrades)
+            ) - totalValueForTrades
+            --|> Debug.log "overage"
 
-        adjustment = Debug.log "adjustment" (
+        adjustment = --Debug.log "adjustment" <|
             if overage <= 0 then
                 Nothing
 
             else
-                -- find any non-ignored stock with enough end shares to sell to cover the overage
+                -- find any non-adjusted stock with enough end shares to sell to cover the overage
                 transactionsForAll
-                    |> List.filter notIgnored
+                    |> List.filter notAdjusted
 
                     -- create tuple (transaction, number of shares required to cover, price per share)
                     |> List.map (\t -> ( t, ceiling (overage / t.price), t.price ))
 
                     -- filter to only stocks with enough shares to cover
                     |> List.filter (\( t, shares, _ ) -> t.endShares >= shares)
-                    |> Debug.log "possible adjustments"
+                    --|> Debug.log "possible adjustments"
 
                     -- create tuple (transaction, number of shares required to cover, excess if shares modified)
                     |> List.map (\( t, shares, price ) -> ( t, shares, (toFloat shares * price) - overage ))
 
                     -- sort by excess, low to high (lowest = closest to the mark)
                     |> List.sortBy (\( _, _, excess ) -> excess)
-                    |> Debug.log "sorted"
+                    --|> Debug.log "sorted"
 
                     -- take the first one
                     |> List.head
 
                     -- create tuple (symbol, shares)
-                    |> Maybe.map (\( t, shares, _ ) -> (t.symbol, shares)))
+                    |> Maybe.map (\( t, shares, _ ) -> (t.symbol, shares))
 
-        adjusted =
+        altered =
             case adjustment of
                 Nothing ->
                     transactionsForAll
@@ -299,19 +345,16 @@ recalculate currentPositions cashPosition missions ignoredSymbols =
 
         -- Fill in the rest of the fields making a complete Transaction record
         completeTransactions =
-            adjusted
+            altered
                 |> List.map
                     (\t ->
                         { transType =
-                            if ignored t then
-                                Ignore
-
-                            else if t.startShares == t.endShares then
-                                Hold
-
+                            if t.startShares == t.endShares then
+                                if t.startShares == 0
+                                then None
+                                else Hold
                             else if t.startShares > t.endShares then
                                 Sell
-
                             else
                                 Buy
                         , symbol = t.symbol
@@ -331,10 +374,6 @@ recalculate currentPositions cashPosition missions ignoredSymbols =
                     )
 
         -- Determine the real cash remaining
-        -- cashRemaining =
-        --     totalValueForTrades
-        --         + desiredEndCash
-        --         - (completeTransactions |> List.filterMap (\t -> if ignored t then Nothing else Just t.endAmount) |> List.sum)
         cashRemaining =
             totalValue
                 - (completeTransactions |> List.map .endAmount |> List.sum)
@@ -348,7 +387,7 @@ recalculate currentPositions cashPosition missions ignoredSymbols =
     { transactions = completeTransactions
     , cashPosition = newCash
     , totalValue = totalValue
-    , totalValueIgnored = valueOfIgnoredPositions
+    , totalValueAdjusted = costOfAdjustedPositions
     , totalValueForTrades = totalValueForTrades
     }
 
@@ -356,17 +395,10 @@ recalculate currentPositions cashPosition missions ignoredSymbols =
 transTypeToString : TransactionType -> String
 transTypeToString t =
     case t of
-        Ignore ->
-            "Ignore"
-
-        Sell ->
-            "Sell"
-
-        Buy ->
-            "Buy"
-
-        Hold ->
-            "Hold"
+        Sell -> "Sell"
+        Buy -> "Buy"
+        Hold -> "Hold"
+        None -> "-"
 
 
 toCsv : CP.CashPosition -> List Transaction -> Float -> String

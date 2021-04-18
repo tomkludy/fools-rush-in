@@ -172,10 +172,15 @@ parseTargetLine a b line =
             |> String.split " "
             |> List.head
             |> Maybe.withDefault ""
+        desc = a
+            |> String.split "\t"
+            |> L.last
+            |> Maybe.withDefault ""
+            |> String.trim
     in
     Just
         { symbol = symbol
-        , description = String.trim a
+        , description = desc
         , currentPrice = U.columnFloat row (List.length row - 3)
         , allocationPercent = U.columnFloat row 0
         }

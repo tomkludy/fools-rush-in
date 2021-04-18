@@ -7,15 +7,15 @@ import Port
 propName : Port.LSSaveable -> E.Value
 propName s =
     case s of
-        Port.IgnoredSymbols -> E.string "ignoredSymbols"
+        Port.AdjustedSymbols -> E.string "ignoredSymbols"
 
-propSetIgnoredSymbols : List String -> E.Value
-propSetIgnoredSymbols s =
-    E.object [("prop", propName Port.IgnoredSymbols), ("value", E.list E.string s)]
+propSetAdjustedSymbols : List String -> E.Value
+propSetAdjustedSymbols s =
+    E.object [("prop", propName Port.AdjustedSymbols), ("value", E.list E.string s)]
 
-propGetIgnoredSymbols : E.Value
-propGetIgnoredSymbols =
-    E.object [("prop", propName Port.IgnoredSymbols)]
+propGetAdjustedSymbols : E.Value
+propGetAdjustedSymbols =
+    E.object [("prop", propName Port.AdjustedSymbols)]
 
 propRetrieved : D.Value -> Result String (Maybe Port.LSValueType)
 propRetrieved s =
@@ -24,16 +24,16 @@ propRetrieved s =
         Ok "ignoredSymbols" ->
             case D.decodeValue (D.field "value" (D.nullable <| D.list D.string)) s of
                 Err e -> Err <| Debug.toString e
-                Ok (Just list) -> Ok (Just (Port.IgnoredSymbolValue list))
+                Ok (Just list) -> Ok (Just (Port.AdjustedSymbolValue list))
                 Ok Nothing -> Ok Nothing
         Ok e -> Err <| "Unknown prop " ++ e
 
 setLocalStore : Port.LSValueType -> Cmd msg
 setLocalStore s =
     case s of
-        Port.IgnoredSymbolValue list -> Port.setLocalStore <| propSetIgnoredSymbols list
+        Port.AdjustedSymbolValue list -> Port.setLocalStore <| propSetAdjustedSymbols list
 
 getLocalStore : Port.LSSaveable -> Cmd msg
 getLocalStore s =
     case s of
-        Port.IgnoredSymbols -> Port.getLocalStore <| propGetIgnoredSymbols
+        Port.AdjustedSymbols -> Port.getLocalStore <| propGetAdjustedSymbols
